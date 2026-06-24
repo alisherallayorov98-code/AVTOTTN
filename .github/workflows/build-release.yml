@@ -22,6 +22,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: .env fayl yaratish
+        run: |
+          echo "SOLIQ_API_URL=${{ secrets.SOLIQ_API_URL }}" >> .env
+          echo "SOLIQ_API_KEY=${{ secrets.SOLIQ_API_KEY }}" >> .env
+
       - name: Backend dependencies
         run: npm ci
 

@@ -67,7 +67,8 @@
     ],
     "extraResources": [
       "didox_shablon.xlsx",
-      "db.json"
+      "db.json",
+      ".env"
     ]
   }
 }

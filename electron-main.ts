@@ -1,8 +1,38 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { registerIpcHandlers } from './ipc-handlers';
+
+// .env faylni ishga tushishda yuklaymiz (packaged va dev uchun)
+function loadEnv() {
+  const candidates = [
+    path.join(process.resourcesPath || '', '.env'),
+    path.join(__dirname, '..', '.env'),
+    path.join(__dirname, '.env'),
+  ];
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) continue;
+    try {
+      const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim();
+        if (key && !process.env[key]) process.env[key] = val;
+      }
+      log.info('.env yuklandi:', envPath);
+    } catch (e) {
+      log.warn('.env o\'qishda xatolik:', e);
+    }
+    break;
+  }
+}
+loadEnv();
 
 log.transports.file.level = 'info';
 log.info('App starting...');
