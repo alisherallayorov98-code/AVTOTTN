@@ -14,6 +14,37 @@ function safeFileSegment(value: any): string {
   return String(value ?? '').replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60) || 'NA';
 }
 
+function saveCustomerAddress(tin: any, name: any, addrObj: any) {
+  if (!tin || !addrObj?.addressText) return;
+  try {
+    const customers = dbMethods.getCustomers();
+    const addrEntry = {
+      addressText: String(addrObj.addressText),
+      oblastCode: String(addrObj.oblastCode || '1726'),
+      rayonCode: String(addrObj.rayonCode || '1')
+    };
+    const existing = customers.find((c: any) => String(c.tin) === String(tin));
+    if (existing) {
+      if (!existing.addresses) existing.addresses = [];
+      const alreadySaved = existing.addresses.some(
+        (a: any) => a.addressText === addrEntry.addressText
+      );
+      if (!alreadySaved) {
+        existing.addresses.unshift(addrEntry); // yangi manzilni birinchiga qo'yish
+        dbMethods.saveCustomer(existing);
+      }
+    } else {
+      dbMethods.saveCustomer({
+        tin: String(tin),
+        name: String(name || ''),
+        addresses: [addrEntry]
+      });
+    }
+  } catch (e) {
+    log.warn('Mijoz manzilini saqlashda xatolik:', e);
+  }
+}
+
 export function registerIpcHandlers() {
   ipcMain.handle('get-invoices', async () => {
     const data = await db1Uz.getInvoices();
@@ -126,8 +157,10 @@ export function registerIpcHandlers() {
       fs.writeFileSync(outputPath, excelBuffer);
       
       dbMethods.markInvoiceAsWritten(invoiceId);
-      
-      // Optionally open the folder
+
+      // Mijoz manzilini keyingi safar uchun saqlash
+      saveCustomerAddress(invoice.buyerTin, invoice.buyerName, unloadingAddressObj);
+
       shell.showItemInFolder(outputPath);
       
       log.info(`Excel generated successfully: ${outputPath}`);
@@ -175,6 +208,13 @@ export function registerIpcHandlers() {
     
     const invoiceIdsToMark = [...new Set(allocations.map((a: any) => a.invoiceId))];
     invoiceIdsToMark.forEach((id: any) => dbMethods.markInvoiceAsWritten(id));
+
+    // Har bir faktura uchun mijoz manzilini saqlash
+    for (const alloc of bulkAllocations) {
+      if (alloc.invoice?.buyerTin && alloc.unloadingAddressObj) {
+        saveCustomerAddress(alloc.invoice.buyerTin, alloc.invoice.buyerName, alloc.unloadingAddressObj);
+      }
+    }
     
     shell.showItemInFolder(outputPath);
 

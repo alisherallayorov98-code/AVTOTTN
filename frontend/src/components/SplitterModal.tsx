@@ -17,17 +17,42 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
   const [newAddrRayon, setNewAddrRayon] = useState('11')
 
   useEffect(() => {
-    let customer = customers.find((c: any) => c.tin === invoice.buyerTin)
-    if (customer && customer.addresses) {
+    const customer = customers.find((c: any) => c.tin === invoice.buyerTin)
+
+    if (customer?.addresses?.length > 0) {
       setAddresses(customer.addresses)
-      if (customer.addresses.length > 0) {
-        setAddressObj(customer.addresses[0])
-      }
+      setAddressObj(customer.addresses[0])
     } else {
-      // Create a default address
-      const defAddr = { addressText: "Yuk tushirish joyi (Asosiy)", oblastCode: "1726", rayonCode: "11" }
+      // Mijoz topilmadi — Soliq API dan avtomatik olamiz
+      const defAddr = { addressText: "Yuklanmoqda...", oblastCode: "1726", rayonCode: "1" }
       setAddresses([defAddr])
       setAddressObj(defAddr)
+
+      if (invoice.buyerTin) {
+        setSearching(true)
+        window.api.searchCompany(String(invoice.buyerTin))
+          .then((comp: any) => {
+            if (comp?.address) {
+              const fetched = {
+                addressText: comp.address,
+                oblastCode: String(comp.oblastCode || '1726'),
+                rayonCode: String(comp.rayonCode || '1')
+              }
+              setAddresses([fetched])
+              setAddressObj(fetched)
+            } else {
+              const fallback = { addressText: "Manzil ko'rsatilmagan", oblastCode: "1726", rayonCode: "1" }
+              setAddresses([fallback])
+              setAddressObj(fallback)
+            }
+          })
+          .catch(() => {
+            const fallback = { addressText: "Manzil topilmadi", oblastCode: "1726", rayonCode: "1" }
+            setAddresses([fallback])
+            setAddressObj(fallback)
+          })
+          .finally(() => setSearching(false))
+      }
     }
   }, [invoice, customers])
 
