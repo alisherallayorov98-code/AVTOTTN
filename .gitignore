@@ -1,0 +1,15 @@
+.env
+.claude/
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+node-env/
+node-env.zip
+node.exe
+node-v20.11.1-win-x64/
+*.exe
+*.blockmap
+db.json
+Yuklangan_PDFlar/
+node_modules

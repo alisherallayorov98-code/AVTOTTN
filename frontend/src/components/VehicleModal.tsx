@@ -1,0 +1,150 @@
+import { useState } from 'react'
+import { X, Truck } from 'lucide-react'
+import { toast } from './Toast'
+
+const empty = {
+  plateNumber: '',
+  vehicleModel: '',
+  trailerPlate: '',
+  trailerModel: '',
+  driverName: '',
+  driverPinfl: '',
+  driverPhone: '',
+  carrierName: '',
+  carrierTin: '',
+  maxCapacity: 40,
+  maxDailyTrips: 2,
+  isActive: true,
+}
+
+const inputCls = "w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+
+export function VehicleModal({ vehicle, onClose, onSaved }: any) {
+  const [form, setForm] = useState<any>({ ...empty, ...(vehicle || {}) })
+  const [saving, setSaving] = useState(false)
+  const isEdit = !!vehicle?.id
+
+  const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }))
+
+  const handleSave = async () => {
+    if (!form.plateNumber?.trim()) return toast("Davlat raqamini kiriting!", 'error')
+    if (!form.driverName?.trim()) return toast("Haydovchi ismini kiriting!", 'error')
+    if (!form.maxCapacity || Number(form.maxCapacity) <= 0) return toast("Sig'im 0 dan katta bo'lishi kerak!", 'error')
+
+    setSaving(true)
+    try {
+      await window.api.saveVehicle({
+        ...form,
+        maxCapacity: parseFloat(form.maxCapacity),
+        maxDailyTrips: parseInt(form.maxDailyTrips) || 2,
+      })
+      toast(isEdit ? "Mashina yangilandi ✓" : "Mashina qo'shildi ✓", 'success')
+      onSaved()
+    } catch (e: any) {
+      toast("Xatolik: " + e.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-background w-full max-w-2xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col border overflow-hidden">
+        <div className="px-6 py-4 border-b flex items-center justify-between bg-secondary/30">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Truck className="text-primary" />
+            {isEdit ? 'Mashinani tahrirlash' : 'Yangi mashina qo\'shish'}
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          {/* Mashina */}
+          <div>
+            <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Transport vositasi</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Davlat raqami *</label>
+                <input className={inputCls} placeholder="01 A 777 AA" value={form.plateNumber ?? ''} onChange={e => update('plateNumber', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Model *</label>
+                <input className={inputCls} placeholder="SHACMAN X5000" value={form.vehicleModel ?? ''} onChange={e => update('vehicleModel', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Yarim tirkama raqami</label>
+                <input className={inputCls} value={form.trailerPlate ?? ''} onChange={e => update('trailerPlate', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Yarim tirkama modeli</label>
+                <input className={inputCls} value={form.trailerModel ?? ''} onChange={e => update('trailerModel', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Haydovchi */}
+          <div>
+            <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Haydovchi</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">F.I.O *</label>
+                <input className={inputCls} value={form.driverName ?? ''} onChange={e => update('driverName', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">JShShIR (PINFL) *</label>
+                <input className={inputCls + ' font-mono'} placeholder="14 raqam" value={form.driverPinfl ?? ''} onChange={e => update('driverPinfl', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Telefon</label>
+                <input className={inputCls} placeholder="+998..." value={form.driverPhone ?? ''} onChange={e => update('driverPhone', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Tashuvchi */}
+          <div>
+            <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Tashuvchi (Yuk tashuvchi tashkilot)</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Tashkilot nomi</label>
+                <input className={inputCls} value={form.carrierName ?? ''} onChange={e => update('carrierName', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Tashuvchi STIR/PINFL</label>
+                <input className={inputCls + ' font-mono'} value={form.carrierTin ?? ''} onChange={e => update('carrierTin', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Sig'im */}
+          <div>
+            <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Sig'im va holat</h3>
+            <div className="grid grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Maks. sig'im (tonna) *</label>
+                <input type="number" className={inputCls} value={form.maxCapacity ?? ''} onChange={e => update('maxCapacity', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Kunlik maks. reys</label>
+                <input type="number" className={inputCls} value={form.maxDailyTrips ?? ''} onChange={e => update('maxDailyTrips', e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 pb-2 cursor-pointer">
+                <input type="checkbox" checked={form.isActive !== false} onChange={e => update('isActive', e.target.checked)} className="w-4 h-4 rounded text-primary focus:ring-primary" />
+                <span className="text-sm font-medium">Faol</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t flex items-center justify-end gap-3 bg-secondary/10">
+          <button onClick={onClose} className="px-5 py-2 rounded-lg font-medium text-sm hover:bg-secondary transition-colors">Bekor qilish</button>
+          <button onClick={handleSave} disabled={saving} className="px-6 py-2 rounded-lg font-medium text-sm bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 disabled:opacity-50">
+            {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

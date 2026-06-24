@@ -1,0 +1,291 @@
+[
+  {
+    "name": "Toshkent shahri",
+    "code": "1726",
+    "districts": [
+      {"name": "Yunusobod tumani", "code": "11"},
+      {"name": "Chilonzor tumani", "code": "3"},
+      {"name": "Uchtepa tumani", "code": "5"},
+      {"name": "Mirzo Ulug'bek tumani", "code": "6"},
+      {"name": "Mirobod tumani", "code": "4"},
+      {"name": "Shayxontohur tumani", "code": "8"},
+      {"name": "Yashnobod tumani", "code": "10"},
+      {"name": "Yakkasaroy tumani", "code": "9"},
+      {"name": "Bektemir tumani", "code": "1"},
+      {"name": "Sergeli tumani", "code": "7"},
+      {"name": "Olmazor tumani", "code": "2"},
+      {"name": "Yangihayot tumani", "code": "13"}
+    ]
+  },
+  {
+    "name": "Toshkent viloyati",
+    "code": "1727",
+    "districts": [
+      {"name": "Angren shahri", "code": "2"},
+      {"name": "Olmaliq shahri", "code": "3"},
+      {"name": "Bekobod shahri", "code": "1"},
+      {"name": "Chirchiq shahri", "code": "5"},
+      {"name": "Yangiyo'l shahri", "code": "6"},
+      {"name": "Bekobod tumani", "code": "10"},
+      {"name": "Bo'stonliq tumani", "code": "11"},
+      {"name": "Bo'ka tumani", "code": "12"},
+      {"name": "Qibray tumani", "code": "13"},
+      {"name": "Parkent tumani", "code": "14"},
+      {"name": "Piskent tumani", "code": "15"},
+      {"name": "O'rtachirchiq tumani", "code": "16"},
+      {"name": "Quyi chirchiq tumani", "code": "17"},
+      {"name": "Toshkent tumani", "code": "18"},
+      {"name": "Oqqo'rg'on tumani", "code": "19"},
+      {"name": "Ohangaron tumani", "code": "20"},
+      {"name": "Yangiyo'l tumani", "code": "21"},
+      {"name": "Yuqorichirchiq tumani", "code": "22"},
+      {"name": "Zangiota tumani", "code": "23"}
+    ]
+  },
+  {
+    "name": "Samarqand viloyati",
+    "code": "1718",
+    "districts": [
+      {"name": "Samarqand shahri", "code": "1"},
+      {"name": "Kattaqo'rg'on shahri", "code": "2"},
+      {"name": "Oqdaryo tumani", "code": "10"},
+      {"name": "Bulung'ur tumani", "code": "11"},
+      {"name": "Jomboy tumani", "code": "12"},
+      {"name": "Ishtixon tumani", "code": "13"},
+      {"name": "Kattaqo'rg'on tumani", "code": "14"},
+      {"name": "Qo'shrabot tumani", "code": "15"},
+      {"name": "Narpay tumani", "code": "16"},
+      {"name": "Payariq tumani", "code": "17"},
+      {"name": "Pastdarg'om tumani", "code": "18"},
+      {"name": "Paxtachi tumani", "code": "19"},
+      {"name": "Samarqand tumani", "code": "20"},
+      {"name": "Nurobod tumani", "code": "21"},
+      {"name": "Urgut tumani", "code": "22"},
+      {"name": "Toyloq tumani", "code": "23"}
+    ]
+  },
+  {
+    "name": "Farg'ona viloyati",
+    "code": "1730",
+    "districts": [
+      {"name": "Farg'ona shahri", "code": "1"},
+      {"name": "Qo'qon shahri", "code": "2"},
+      {"name": "Marg'ilon shahri", "code": "3"},
+      {"name": "Quvasoy shahri", "code": "4"},
+      {"name": "Oltiariq tumani", "code": "10"},
+      {"name": "Bag'dod tumani", "code": "11"},
+      {"name": "Besharik tumani", "code": "12"},
+      {"name": "Buvayda tumani", "code": "13"},
+      {"name": "Dang'ara tumani", "code": "14"},
+      {"name": "Dehqonobod tumani", "code": "15"},
+      {"name": "Quva tumani", "code": "16"},
+      {"name": "Rishton tumani", "code": "17"},
+      {"name": "So'x tumani", "code": "18"},
+      {"name": "Toshloq tumani", "code": "19"},
+      {"name": "O'zbekiston tumani", "code": "20"},
+      {"name": "Uchko'prik tumani", "code": "21"},
+      {"name": "Farg'ona tumani", "code": "22"},
+      {"name": "Furqat tumani", "code": "23"},
+      {"name": "Yozyovon tumani", "code": "24"}
+    ]
+  },
+  {
+    "name": "Andijon viloyati",
+    "code": "1703",
+    "districts": [
+      {"name": "Andijon shahri", "code": "1"},
+      {"name": "Xonobod shahri", "code": "2"},
+      {"name": "Andijon tumani", "code": "10"},
+      {"name": "Asaka tumani", "code": "11"},
+      {"name": "Baliqchi tumani", "code": "12"},
+      {"name": "Buloqboshi tumani", "code": "13"},
+      {"name": "Bo'z tumani", "code": "14"},
+      {"name": "Jalaquduq tumani", "code": "15"},
+      {"name": "Izboskan tumani", "code": "16"},
+      {"name": "Qorasuv tumani", "code": "17"},
+      {"name": "Qo'rg'ontepa tumani", "code": "18"},
+      {"name": "Marhamat tumani", "code": "19"},
+      {"name": "Oltinko'l tumani", "code": "20"},
+      {"name": "Paxtaobod tumani", "code": "21"},
+      {"name": "Ulug'nor tumani", "code": "22"},
+      {"name": "Xo'jaobod tumani", "code": "23"},
+      {"name": "Shahrixon tumani", "code": "24"}
+    ]
+  },
+  {
+    "name": "Buxoro viloyati",
+    "code": "1706",
+    "districts": [
+      {"name": "Buxoro shahri", "code": "1"},
+      {"name": "Kogon shahri", "code": "2"},
+      {"name": "Buxoro tumani", "code": "10"},
+      {"name": "Vobkent tumani", "code": "11"},
+      {"name": "Jondor tumani", "code": "12"},
+      {"name": "Kogon tumani", "code": "13"},
+      {"name": "Qorako'l tumani", "code": "14"},
+      {"name": "Qorovulbozor tumani", "code": "15"},
+      {"name": "Olot tumani", "code": "16"},
+      {"name": "Peshku tumani", "code": "17"},
+      {"name": "Romitan tumani", "code": "18"},
+      {"name": "Shofirkon tumani", "code": "19"},
+      {"name": "G'ijduvon tumani", "code": "20"}
+    ]
+  },
+  {
+    "name": "Jizzax viloyati",
+    "code": "1708",
+    "districts": [
+      {"name": "Jizzax shahri", "code": "1"},
+      {"name": "Arnasoy tumani", "code": "10"},
+      {"name": "Baxmal tumani", "code": "11"},
+      {"name": "G'allaorol tumani", "code": "12"},
+      {"name": "Do'stlik tumani", "code": "13"},
+      {"name": "Sharof Rashidov tumani", "code": "22"},
+      {"name": "Zarbdor tumani", "code": "15"},
+      {"name": "Zafarobod tumani", "code": "16"},
+      {"name": "Zomin tumani", "code": "17"},
+      {"name": "Mirzacho'l tumani", "code": "18"},
+      {"name": "Paxtakor tumani", "code": "19"},
+      {"name": "Yangiobod tumani", "code": "20"},
+      {"name": "Forish tumani", "code": "21"}
+    ]
+  },
+  {
+    "name": "Qashqadaryo viloyati",
+    "code": "1710",
+    "districts": [
+      {"name": "Qarshi shahri", "code": "1"},
+      {"name": "Shahrisabz shahri", "code": "2"},
+      {"name": "G'uzor tumani", "code": "10"},
+      {"name": "Dehqonobod tumani", "code": "11"},
+      {"name": "Qamashi tumani", "code": "12"},
+      {"name": "Qarshi tumani", "code": "13"},
+      {"name": "Koson tumani", "code": "14"},
+      {"name": "Kasbi tumani", "code": "15"},
+      {"name": "Kitob tumani", "code": "16"},
+      {"name": "Miriishkor tumani", "code": "17"},
+      {"name": "Muborak tumani", "code": "18"},
+      {"name": "Nishon tumani", "code": "19"},
+      {"name": "Chiroqchi tumani", "code": "20"},
+      {"name": "Shahrisabz tumani", "code": "21"},
+      {"name": "Yakkabog' tumani", "code": "22"},
+      {"name": "Ko'kdala tumani", "code": "23"}
+    ]
+  },
+  {
+    "name": "Navoiy viloyati",
+    "code": "1712",
+    "districts": [
+      {"name": "Navoiy shahri", "code": "1"},
+      {"name": "Zarafshon shahri", "code": "2"},
+      {"name": "G'ozg'on shahri", "code": "3"},
+      {"name": "Karmana tumani", "code": "10"},
+      {"name": "Konimex tumani", "code": "11"},
+      {"name": "Qiziltepa tumani", "code": "12"},
+      {"name": "Navbahor tumani", "code": "13"},
+      {"name": "Nurota tumani", "code": "14"},
+      {"name": "Tomdi tumani", "code": "15"},
+      {"name": "Uchquduq tumani", "code": "16"},
+      {"name": "Xatirchi tumani", "code": "17"}
+    ]
+  },
+  {
+    "name": "Namangan viloyati",
+    "code": "1714",
+    "districts": [
+      {"name": "Namangan shahri", "code": "1"},
+      {"name": "Kosonsoy tumani", "code": "10"},
+      {"name": "Mingbuloq tumani", "code": "11"},
+      {"name": "Namangan tumani", "code": "12"},
+      {"name": "Norin tumani", "code": "13"},
+      {"name": "Pop tumani", "code": "14"},
+      {"name": "To'raqo'rg'on tumani", "code": "15"},
+      {"name": "Uychi tumani", "code": "16"},
+      {"name": "Uchqo'rg'on tumani", "code": "17"},
+      {"name": "Chortoq tumani", "code": "18"},
+      {"name": "Chust tumani", "code": "19"},
+      {"name": "Yangiqo'rg'on tumani", "code": "20"},
+      {"name": "Davlatobod tumani", "code": "21"},
+      {"name": "Yangi Namangan tumani", "code": "22"}
+    ]
+  },
+  {
+    "name": "Sirdaryo viloyati",
+    "code": "1724",
+    "districts": [
+      {"name": "Guliston shahri", "code": "1"},
+      {"name": "Shirin shahri", "code": "2"},
+      {"name": "Yangier shahri", "code": "3"},
+      {"name": "Oqoltin tumani", "code": "10"},
+      {"name": "Boyovut tumani", "code": "11"},
+      {"name": "Guliston tumani", "code": "12"},
+      {"name": "Mirzaobod tumani", "code": "13"},
+      {"name": "Sirdaryo tumani", "code": "14"},
+      {"name": "Sayxunobod tumani", "code": "15"},
+      {"name": "Sardoba tumani", "code": "16"},
+      {"name": "Xavast tumani", "code": "17"}
+    ]
+  },
+  {
+    "name": "Surxondaryo viloyati",
+    "code": "1722",
+    "districts": [
+      {"name": "Termiz shahri", "code": "1"},
+      {"name": "Angor tumani", "code": "10"},
+      {"name": "Boysun tumani", "code": "11"},
+      {"name": "Denov tumani", "code": "12"},
+      {"name": "Jarqo'rg'on tumani", "code": "13"},
+      {"name": "Muzrabot tumani", "code": "14"},
+      {"name": "Oltinsoy tumani", "code": "15"},
+      {"name": "Sariosiyo tumani", "code": "16"},
+      {"name": "Termiz tumani", "code": "17"},
+      {"name": "Uzun tumani", "code": "18"},
+      {"name": "Sherobod tumani", "code": "19"},
+      {"name": "Sho'rchi tumani", "code": "20"},
+      {"name": "Qumqo'rg'on tumani", "code": "21"},
+      {"name": "Bandixon tumani", "code": "22"}
+    ]
+  },
+  {
+    "name": "Xorazm viloyati",
+    "code": "1733",
+    "districts": [
+      {"name": "Urganch shahri", "code": "1"},
+      {"name": "Xiva shahri", "code": "2"},
+      {"name": "Bog'ot tumani", "code": "10"},
+      {"name": "Gurlan tumani", "code": "11"},
+      {"name": "Qo'shko'pir tumani", "code": "12"},
+      {"name": "Urganch tumani", "code": "13"},
+      {"name": "Xazorasp tumani", "code": "14"},
+      {"name": "Xonqa tumani", "code": "15"},
+      {"name": "Xiva tumani", "code": "16"},
+      {"name": "Shovot tumani", "code": "17"},
+      {"name": "Yangiariq tumani", "code": "18"},
+      {"name": "Yangibozor tumani", "code": "19"},
+      {"name": "Tuproqqal'a tumani", "code": "20"}
+    ]
+  },
+  {
+    "name": "Qoraqalpog'iston Respublikasi",
+    "code": "1735",
+    "districts": [
+      {"name": "Nukus shahri", "code": "1"},
+      {"name": "Amudaryo tumani", "code": "10"},
+      {"name": "Beruniy tumani", "code": "11"},
+      {"name": "Qorao'zak tumani", "code": "12"},
+      {"name": "Kegeyli tumani", "code": "13"},
+      {"name": "Qo'ng'irot tumani", "code": "14"},
+      {"name": "Qonliko'l tumani", "code": "15"},
+      {"name": "Mo'ynoq tumani", "code": "16"},
+      {"name": "Nukus tumani", "code": "17"},
+      {"name": "Taxtako'pir tumani", "code": "18"},
+      {"name": "To'rtko'l tumani", "code": "19"},
+      {"name": "Xo'jayli tumani", "code": "20"},
+      {"name": "Chimboy tumani", "code": "21"},
+      {"name": "Sho'manoy tumani", "code": "22"},
+      {"name": "Ellikqal'a tumani", "code": "23"},
+      {"name": "Taxiatosh shahri", "code": "24"},
+      {"name": "Bo'zatov tumani", "code": "25"}
+    ]
+  }
+]

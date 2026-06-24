@@ -1,0 +1,69 @@
+{
+  "name": "avtottn",
+  "version": "1.0.0",
+  "description": "1Uz buxgalteriya dasturidan ETTN yaratish va Excelga split qilish",
+  "main": "dist/electron-main.js",
+  "scripts": {
+    "copy-js": "powershell -Command \"Copy-Item db.js dist\\db.js -Force; Copy-Item 1uz-db.js dist\\1uz-db.js -Force; Copy-Item soliq-api.js dist\\soliq-api.js -Force; Copy-Item splitter.js dist\\splitter.js -Force; Copy-Item excel-generator.js dist\\excel-generator.js -Force; Copy-Item pdf-parser.js dist\\pdf-parser.js -Force\"",
+    "start": "npx tsc && npm run copy-js && npx electron .",
+    "build": "npx tsc && npm run copy-js && electron-builder build --win"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.17",
+    "axios": "^1.6.8",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.3",
+    "express": "^4.19.2",
+    "node-firebird": "^0.8.9",
+    "pdf-parse": "^1.1.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "build": {
+    "appId": "com.avtottn.app",
+    "productName": "AvtoETTN",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "alisherallayorov98-code",
+        "repo": "AVTOTTN"
+      }
+    ],
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AvtoETTN"
+    },
+    "files": [
+      "**/*",
+      "!node-env.zip",
+      "!node-env",
+      "!node.exe",
+      "!dist"
+    ],
+    "extraResources": [
+      "didox_shablon.xlsx",
+      "db.json"
+    ]
+  }
+}
