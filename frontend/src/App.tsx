@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Truck, Settings, Package, Search, Phone, User, Trash2, Pencil, FileUp, Layers } from 'lucide-react'
+import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers } from 'lucide-react'
 import { useInvoices, useVehicles, useSettings, useCustomers } from './hooks/useIpc'
 import { SplitterModal } from './components/SplitterModal'
 import { VehicleModal } from './components/VehicleModal'
