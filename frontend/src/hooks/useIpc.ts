@@ -21,6 +21,7 @@ declare global {
       deleteManualInvoice: (id: string) => Promise<any>;
       extractPdfs: (buffer: ArrayBuffer) => Promise<any>;
       parsePdf: (buffer: ArrayBuffer) => Promise<any>;
+      parsePdfsFromFolder: () => Promise<any>;
     };
   }
 }

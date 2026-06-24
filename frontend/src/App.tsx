@@ -14,8 +14,11 @@ declare global {
   interface Window {
     electronAPI?: {
       onUpdateAvailable: (callback: (info: any) => void) => void;
+      onUpdateProgress: (callback: (percent: number) => void) => void;
       onUpdateDownloaded: (callback: (info: any) => void) => void;
       restartApp: () => void;
+      getAppVersion: () => Promise<string>;
+      openDownloadsFolder: () => Promise<void>;
     };
   }
 }
