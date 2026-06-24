@@ -31,7 +31,7 @@
     "appId": "com.avtottn.app",
     "productName": "AvtoETTN",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "win": {
       "target": [
@@ -59,7 +59,12 @@
       "!node-env.zip",
       "!node-env",
       "!node.exe",
-      "!dist"
+      "!release",
+      "!node_modules",
+      "!frontend/node_modules",
+      "!frontend/src",
+      "!*.ts",
+      "!tsconfig.json"
     ],
     "extraResources": [
       "didox_shablon.xlsx",

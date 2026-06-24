@@ -3,6 +3,7 @@
 node_modules/
 frontend/node_modules/
 dist/
+release/
 frontend/dist/
 node-env/
 node-env.zip
