@@ -67,7 +67,7 @@ function App() {
 
         <div className="p-4 m-4 bg-primary/10 rounded-xl">
           <p className="text-xs text-primary/80 font-medium text-center">AvtoETTN</p>
-          <p className="text-[10px] text-muted-foreground text-center mt-1">v1.0.0</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">v1.2.1</p>
         </div>
       </aside>
 
