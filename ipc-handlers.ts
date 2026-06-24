@@ -48,6 +48,40 @@ function saveCustomerAddress(tin: any, name: any, addrObj: any) {
 export function registerIpcHandlers() {
   ipcMain.handle('get-app-version', () => app.getVersion());
 
+  // ─── Profil boshqaruvi ───────────────────────────────────────────────────────
+  ipcMain.handle('get-profiles', () => dbMethods.getProfiles());
+  ipcMain.handle('create-profile', (_, name) => dbMethods.createProfile(name));
+  ipcMain.handle('switch-profile', (_, id) => dbMethods.switchProfile(id));
+  ipcMain.handle('rename-profile', (_, id, name) => dbMethods.renameProfile(id, name));
+  ipcMain.handle('delete-profile', (_, id) => dbMethods.deleteProfile(id));
+
+  // ─── 1Uz Firebird ulanishini tekshirish ─────────────────────────────────────
+  ipcMain.handle('test-firebird-connection', async () => {
+    const settings = dbMethods.getSettings();
+    if (!settings.firebirdDatabase) return { ok: false, message: "Fayl yo'li kiritilmagan" };
+    return new Promise((resolve) => {
+      const firebird = require('node-firebird');
+      const options = {
+        host: settings.firebirdHost || '127.0.0.1',
+        port: parseInt(settings.firebirdPort) || 3050,
+        database: settings.firebirdDatabase,
+        user: settings.firebirdUser || 'SYSDBA',
+        password: settings.firebirdPassword || 'masterkey',
+        lowercase_keys: true,
+        role: null,
+        pageSize: 4096
+      };
+      firebird.attach(options, (err: any, db: any) => {
+        if (err) {
+          resolve({ ok: false, message: err.message });
+        } else {
+          db.detach();
+          resolve({ ok: true, message: "Ulanish muvaffaqiyatli!" });
+        }
+      });
+    });
+  });
+
   ipcMain.handle('open-downloads-folder', () => {
     const dir = path.join(app.getPath('downloads'), 'AvtoETTN');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

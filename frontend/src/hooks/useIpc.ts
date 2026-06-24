@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 declare global {
   interface Window {
     api: {
+      getProfiles: () => Promise<any>;
+      createProfile: (name: string) => Promise<any>;
+      switchProfile: (id: string) => Promise<any>;
+      renameProfile: (id: string, name: string) => Promise<any>;
+      deleteProfile: (id: string) => Promise<any>;
+      testFirebirdConnection: () => Promise<{ ok: boolean; message: string }>;
       getInvoices: () => Promise<any>;
       toggleInvoiceWritten: (id: string, isWritten: boolean) => Promise<any>;
       getVehicles: () => Promise<any>;

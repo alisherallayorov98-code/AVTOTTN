@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers, ChevronDown, CheckCircle2, XCircle, Loader2, Building2 } from 'lucide-react'
 import { useInvoices, useVehicles, useSettings, useCustomers } from './hooks/useIpc'
 import { SplitterModal } from './components/SplitterModal'
 import { VehicleModal } from './components/VehicleModal'
@@ -7,7 +7,6 @@ import { PdfImportModal } from './components/PdfImportModal'
 import { BulkDispatchModal } from './components/BulkDispatchModal'
 import { Toaster, toast } from './components/Toast'
 import { RegionDistrictPicker } from './components/RegionDistrictPicker'
-import { useEffect } from 'react'
 
 // Assuming we expose ipcRenderer directly via contextBridge for updates
 declare global {
@@ -28,6 +27,21 @@ function App() {
   const [updateState, setUpdateState] = useState<'idle' | 'available' | 'downloading' | 'ready'>('idle')
   const [updateProgress, setUpdateProgress] = useState(0)
   const [appVersion, setAppVersion] = useState('...')
+  const [profileKey, setProfileKey] = useState(0)
+  const [profiles, setProfiles] = useState<{ id: string; name: string }[]>([])
+  const [currentProfileId, setCurrentProfileId] = useState('')
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [creatingProfile, setCreatingProfile] = useState(false)
+  const [newProfileName, setNewProfileName] = useState('')
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  const loadProfiles = async () => {
+    try {
+      const data = await window.api.getProfiles()
+      setProfiles(data.list || [])
+      setCurrentProfileId(data.currentId || '')
+    } catch {}
+  }
 
   useEffect(() => {
     if (!window.electronAPI) return
@@ -37,16 +51,114 @@ function App() {
     window.electronAPI.getAppVersion?.().then((v: string) => setAppVersion(v))
   }, [])
 
+  useEffect(() => { loadProfiles() }, [])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setShowProfileMenu(false)
+        setCreatingProfile(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const switchProfile = async (id: string) => {
+    if (id === currentProfileId) { setShowProfileMenu(false); return }
+    try {
+      await window.api.switchProfile(id)
+      setCurrentProfileId(id)
+      setProfileKey(k => k + 1)
+      setShowProfileMenu(false)
+    } catch (e: any) { toast("Profil almashtirilmadi: " + e.message, 'error') }
+  }
+
+  const handleCreateProfile = async () => {
+    if (!newProfileName.trim()) return
+    try {
+      await window.api.createProfile(newProfileName.trim())
+      await loadProfiles()
+      setProfileKey(k => k + 1)
+      setNewProfileName('')
+      setCreatingProfile(false)
+      setShowProfileMenu(false)
+    } catch (e: any) { toast("Xatolik: " + e.message, 'error') }
+  }
+
+  const handleDeleteProfile = async (id: string, name: string) => {
+    if (!confirm(`"${name}" profilini o'chirasizmi? Barcha ma'lumotlar yo'qoladi!`)) return
+    try {
+      await window.api.deleteProfile(id)
+      await loadProfiles()
+      setProfileKey(k => k + 1)
+    } catch (e: any) { toast("Xatolik: " + e.message, 'error') }
+  }
+
+  const currentProfile = profiles.find(p => p.id === currentProfileId)
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Toaster />
       {/* Sidebar */}
       <aside className="w-64 bg-secondary/30 border-r flex flex-col transition-all duration-300">
-        <div className="p-6 flex items-center gap-3">
+        <div className="p-5 flex items-center gap-3 border-b">
           <div className="bg-primary/10 text-primary p-2 rounded-lg">
-            <Package size={24} />
+            <Package size={22} />
           </div>
-          <h1 className="font-bold text-xl tracking-tight">AvtoETTN</h1>
+          <h1 className="font-bold text-lg tracking-tight">AvtoETTN</h1>
+        </div>
+
+        {/* Profil almashtirish */}
+        <div className="px-3 pt-3 pb-1 relative" ref={profileMenuRef}>
+          <button
+            onClick={() => { setShowProfileMenu(v => !v); setCreatingProfile(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-background border hover:border-primary/50 transition-colors text-sm"
+          >
+            <Building2 size={14} className="text-primary shrink-0" />
+            <span className="flex-1 text-left font-medium truncate">{currentProfile?.name || '...'}</span>
+            <ChevronDown size={14} className={`text-muted-foreground transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showProfileMenu && (
+            <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-background border rounded-xl shadow-xl overflow-hidden">
+              <div className="py-1">
+                {profiles.map(p => (
+                  <div key={p.id} className={`flex items-center group px-3 py-2 hover:bg-secondary/50 transition-colors ${p.id === currentProfileId ? 'bg-primary/5' : ''}`}>
+                    <button onClick={() => switchProfile(p.id)} className="flex-1 text-left text-sm flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.id === currentProfileId ? 'bg-primary' : 'bg-transparent'}`} />
+                      <span className={p.id === currentProfileId ? 'font-semibold text-primary' : ''}>{p.name}</span>
+                    </button>
+                    {profiles.length > 1 && (
+                      <button onClick={() => handleDeleteProfile(p.id, p.name)} className="hidden group-hover:flex text-muted-foreground hover:text-destructive p-1 rounded" title="O'chirish">
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="border-t px-3 py-2">
+                {creatingProfile ? (
+                  <div className="flex gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Kompaniya nomi..."
+                      value={newProfileName}
+                      onChange={e => setNewProfileName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleCreateProfile(); if (e.key === 'Escape') setCreatingProfile(false) }}
+                      className="flex-1 text-xs px-2 py-1.5 border rounded-md outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <button onClick={handleCreateProfile} className="text-xs px-2 py-1.5 bg-primary text-white rounded-md">OK</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setCreatingProfile(true)} className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground py-1">
+                    <Plus size={12} /> Yangi kompaniya
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 px-4 py-2 space-y-2">
@@ -116,9 +228,9 @@ function App() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          {activeTab === 'invoices' && <InvoicesView />}
-          {activeTab === 'vehicles' && <VehiclesView />}
-          {activeTab === 'settings' && <SettingsView />}
+          {activeTab === 'invoices' && <InvoicesView key={profileKey} />}
+          {activeTab === 'vehicles' && <VehiclesView key={profileKey} />}
+          {activeTab === 'settings' && <SettingsView key={profileKey} onProfileRenamed={loadProfiles} />}
         </div>
       </main>
 
@@ -470,11 +582,15 @@ function VehiclesView() {
   )
 }
 
-function SettingsView() {
+function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
   const { settings, loading, refetch } = useSettings()
   const [form, setForm] = useState<any>({})
   const [units, setUnits] = useState<{ name: string; code: string }[]>([])
   const [saving, setSaving] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [renamingProfile, setRenamingProfile] = useState(false)
+  const [profileName, setProfileName] = useState('')
 
   useEffect(() => {
     if (!loading) {
@@ -483,6 +599,27 @@ function SettingsView() {
       setUnits(Object.entries(uc).map(([name, code]) => ({ name, code: String(code) })))
     }
   }, [loading, settings])
+
+  const handleTestFirebird = async () => {
+    setTesting(true); setTestResult(null)
+    try {
+      await window.api.saveSettings(form)
+      const result = await window.api.testFirebirdConnection()
+      setTestResult(result)
+    } catch (e: any) { setTestResult({ ok: false, message: e.message }) }
+    finally { setTesting(false) }
+  }
+
+  const handleRenameProfile = async () => {
+    if (!profileName.trim()) return
+    try {
+      const data = await window.api.getProfiles()
+      await window.api.renameProfile(data.currentId, profileName.trim())
+      onProfileRenamed?.()
+      setRenamingProfile(false)
+      toast("Profil nomi o'zgartirildi ✓", 'success')
+    } catch (e: any) { toast("Xatolik: " + e.message, 'error') }
+  }
 
   if (loading) return null
 
@@ -528,9 +665,22 @@ function SettingsView() {
             </h3>
           </div>
           <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Kompaniya Nomi</label>
-              <input type="text" value={form.senderName || ''} onChange={e => update('senderName', e.target.value)} className={inputCls} />
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Kompaniya Nomi</label>
+                {renamingProfile ? (
+                  <div className="flex gap-2">
+                    <input autoFocus type="text" value={profileName} onChange={e => setProfileName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleRenameProfile() }} className={inputCls} />
+                    <button onClick={handleRenameProfile} className="px-3 py-2 bg-primary text-white text-xs rounded-md">OK</button>
+                    <button onClick={() => setRenamingProfile(false)} className="px-3 py-2 bg-secondary text-xs rounded-md">✕</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input type="text" value={form.senderName || ''} onChange={e => update('senderName', e.target.value)} className={inputCls} />
+                    <button onClick={() => { setProfileName(form.senderName || ''); setRenamingProfile(true) }} className="px-3 py-2 bg-secondary text-xs rounded-md shrink-0 text-muted-foreground hover:text-foreground" title="Profil nomini o'zgartirish"><Pencil size={13} /></button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -538,8 +688,18 @@ function SettingsView() {
                 <input type="text" value={form.senderTin || ''} onChange={e => update('senderTin', e.target.value)} className={inputCls + ' font-mono'} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Mas'ul JShShIR (PINFL)</label>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Transport egasi STIR/PINFL</label>
+                <input type="text" value={form.transportOwnerTin || ''} onChange={e => update('transportOwnerTin', e.target.value)} className={inputCls + ' font-mono'} placeholder={form.senderTin || 'Jo\'natuvchi STIR'} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Jo'natuvchi mas'ul JShShIR (PINFL)</label>
                 <input type="text" value={form.senderResponsiblePinfl || ''} onChange={e => update('senderResponsiblePinfl', e.target.value)} className={inputCls + ' font-mono'} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Qabul qiluvchi mas'ul JShShIR (PINFL)</label>
+                <input type="text" value={form.receiverResponsiblePinfl || ''} onChange={e => update('receiverResponsiblePinfl', e.target.value)} className={inputCls + ' font-mono'} />
               </div>
             </div>
           </div>
@@ -600,6 +760,24 @@ function SettingsView() {
               <div>
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Parol</label>
                 <input type="password" value={form.firebirdPassword || ''} onChange={e => update('firebirdPassword', e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Fakturalar boshlanish sanasi</label>
+                <input type="date" value={form.invoiceDateFrom || `${new Date().getFullYear()}-01-01`} onChange={e => update('invoiceDateFrom', e.target.value)} className={inputCls} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <button onClick={handleTestFirebird} disabled={testing} className="flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50">
+                  {testing ? <Loader2 size={14} className="animate-spin" /> : <Settings size={14} />}
+                  Ulanishni tekshirish
+                </button>
+                {testResult && (
+                  <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-md ${testResult.ok ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
+                    {testResult.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                    {testResult.message}
+                  </div>
+                )}
               </div>
             </div>
           </div>

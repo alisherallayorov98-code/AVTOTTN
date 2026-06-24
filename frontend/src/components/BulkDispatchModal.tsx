@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Layers, Loader2, AlertTriangle, Truck } from 'lucide-react'
+import { X, Layers, Loader2, AlertTriangle, Truck, MapPin } from 'lucide-react'
 import { toast } from './Toast'
 
 export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onComplete }: any) {
@@ -7,6 +7,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
   const [generating, setGenerating] = useState(false)
   const [allocations, setAllocations] = useState<any[]>([])
   const [remaining, setRemaining] = useState<any[]>([])
+  const [addrOverrides, setAddrOverrides] = useState<{ [id: string]: string }>({})
 
   useEffect(() => {
     (async () => {
@@ -26,21 +27,27 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
   const invById = (id: string) => invoices.find((i: any) => i.id === id)
   const vehById = (id: string) => vehicles.find((v: any) => v.id === id)
 
-  // Har bir faktura uchun tushirish manzilini mijozlar bazasidan tanlaymiz
-  const buildAddresses = () => {
-    const map: any = {}
-    for (const inv of invoices) {
-      const customer = customers.find((c: any) => c.tin === inv.buyerTin)
-      map[inv.id] = customer?.addresses?.[0] || { addressText: 'Mijoz manzili', oblastCode: '1726', rayonCode: '1' }
-    }
-    return map
-  }
-
-  // Manzilsiz fakturalar ro'yxati (ogohlantirish uchun)
+  // Manzilsiz fakturalar
   const missingAddressInvoices = invoices.filter((inv: any) => {
     const customer = customers.find((c: any) => c.tin === inv.buyerTin)
     return !customer?.addresses?.length
   })
+
+  // Har bir faktura uchun manzil: mijoz bazasi → override → standart
+  const buildAddresses = () => {
+    const map: any = {}
+    for (const inv of invoices) {
+      const customer = customers.find((c: any) => c.tin === inv.buyerTin)
+      if (customer?.addresses?.[0]) {
+        map[inv.id] = customer.addresses[0]
+      } else if (addrOverrides[inv.id]?.trim()) {
+        map[inv.id] = { addressText: addrOverrides[inv.id].trim(), oblastCode: '1726', rayonCode: '1' }
+      } else {
+        map[inv.id] = { addressText: 'Manzil ko\'rsatilmagan', oblastCode: '1726', rayonCode: '1' }
+      }
+    }
+    return map
+  }
 
   const handleGenerate = async () => {
     if (allocations.length === 0) return toast("Taqsimot bo'sh", 'error')
@@ -111,16 +118,22 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
               })}
 
               {missingAddressInvoices.length > 0 && (
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex gap-3">
-                  <AlertTriangle className="text-blue-500 shrink-0" size={20} />
-                  <div className="text-sm">
-                    <p className="font-medium text-blue-600">{missingAddressInvoices.length} ta faktura uchun manzil topilmadi — standart Toshkent manzili ishlatiladi:</p>
-                    <ul className="mt-1 text-muted-foreground text-xs space-y-0.5">
-                      {missingAddressInvoices.map((inv: any) => (
-                        <li key={inv.id}>№ {inv.invoiceNumber} · {inv.buyerName} (STIR: {inv.buyerTin})</li>
-                      ))}
-                    </ul>
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
+                    <MapPin size={15} /> {missingAddressInvoices.length} ta mijoz manzili topilmadi — quyida kiriting:
                   </div>
+                  {missingAddressInvoices.map((inv: any) => (
+                    <div key={inv.id} className="bg-background rounded-lg p-3 border space-y-1.5">
+                      <div className="text-xs font-medium text-foreground">№ {inv.invoiceNumber} · {inv.buyerName}</div>
+                      <input
+                        type="text"
+                        placeholder="Yetkazib berish manzili (ko'cha, uy)..."
+                        className="w-full text-xs px-3 py-2 border rounded-md outline-none focus:ring-1 focus:ring-primary bg-background"
+                        value={addrOverrides[inv.id] || ''}
+                        onChange={e => setAddrOverrides(prev => ({ ...prev, [inv.id]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
 

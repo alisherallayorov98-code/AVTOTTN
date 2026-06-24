@@ -10,6 +10,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  // Profil boshqaruvi
+  getProfiles: () => ipcRenderer.invoke('get-profiles'),
+  createProfile: (name) => ipcRenderer.invoke('create-profile', name),
+  switchProfile: (id) => ipcRenderer.invoke('switch-profile', id),
+  renameProfile: (id, name) => ipcRenderer.invoke('rename-profile', id, name),
+  deleteProfile: (id) => ipcRenderer.invoke('delete-profile', id),
+
+  // Asosiy metodlar
   getInvoices: () => ipcRenderer.invoke('get-invoices'),
   toggleInvoiceWritten: (invoiceId, isWritten) => ipcRenderer.invoke('toggle-invoice-written', invoiceId, isWritten),
   getVehicles: () => ipcRenderer.invoke('get-vehicles'),
@@ -19,6 +27,7 @@ contextBridge.exposeInMainWorld('api', {
   searchCompany: (tin) => ipcRenderer.invoke('search-company', tin),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  testFirebirdConnection: () => ipcRenderer.invoke('test-firebird-connection'),
   splitCargo: (totalQuantity, vehicleIds) => ipcRenderer.invoke('split-cargo', totalQuantity, vehicleIds),
   bulkSplit: (invoiceIds) => ipcRenderer.invoke('bulk-split', invoiceIds),
   generateExcel: (invoiceId, allocations, unloadingAddress) => ipcRenderer.invoke('generate-excel', invoiceId, allocations, unloadingAddress),

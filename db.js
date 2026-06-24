@@ -1,12 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-// Boshlang'ich (bundle'dagi) db.json joylashuvini aniqlash.
-// Bu fayl faqat "urug'" (seed) sifatida ishlatiladi — unga yozilmaydi.
 function getSeedDbPath() {
   let baseDir = __dirname;
   if (__dirname.includes('app.asar')) {
-    // Paketlangan holatda db.json extraResources orqali resourcesPath'ga tushadi
     if (process.resourcesPath) {
       const resSeed = path.join(process.resourcesPath, 'db.json');
       if (fs.existsSync(resSeed)) return resSeed;
@@ -18,21 +15,14 @@ function getSeedDbPath() {
   return path.join(baseDir, 'db.json');
 }
 
-// Yoziladigan db.json yo'li — har doim userData papkasida (yozish huquqi kafolatlangan).
-// Electron app modulini lazy require qilamiz, chunki bu modul main jarayonida yuklanadi.
 let _dbPath = null;
 function getDbPath() {
   if (_dbPath) return _dbPath;
-
   let userDataDir = null;
   try {
     const { app } = require('electron');
-    if (app && typeof app.getPath === 'function') {
-      userDataDir = app.getPath('userData');
-    }
-  } catch (e) {
-    // Electron mavjud bo'lmasa (masalan, test rejimi) — seed yo'liga qaytamiz
-  }
+    if (app && typeof app.getPath === 'function') userDataDir = app.getPath('userData');
+  } catch (e) {}
 
   if (!userDataDir) {
     _dbPath = getSeedDbPath();
@@ -40,215 +30,258 @@ function getDbPath() {
   }
 
   const targetPath = path.join(userDataDir, 'db.json');
-
-  // Birinchi ishga tushish: agar userData'da db.json bo'lmasa, bundle'dagi seed'dan ko'chiramiz
   if (!fs.existsSync(targetPath)) {
     try {
       const seedPath = getSeedDbPath();
       if (fs.existsSync(seedPath)) {
         fs.copyFileSync(seedPath, targetPath);
-        console.log(`db.json seed ko'chirildi: ${targetPath}`);
       } else {
-        fs.writeFileSync(targetPath, JSON.stringify({ vehicles: [], customers: [], settings: {}, manualInvoices: [], writtenInvoiceIds: [] }, null, 2), 'utf8');
+        fs.writeFileSync(targetPath, JSON.stringify(makeEmptyDb(), null, 2), 'utf8');
       }
     } catch (err) {
       console.error('db.json seed ko\'chirishda xatolik:', err);
     }
   }
-
   _dbPath = targetPath;
   return _dbPath;
 }
 
-// Bir martalik ma'lumot migratsiyalari (jarayon davomida bir marta ishlaydi)
-let _migrated = false;
-function runMigrations(data) {
-  let changed = false;
-  // SOATO normalizatsiya: eski/placeholder "33" viloyat kodi -> Toshkent shahri "1726"
-  (data.customers || []).forEach(c => {
-    (c.addresses || []).forEach(a => {
-      if (String(a.oblastCode) === '33') {
-        a.oblastCode = '1726';
-        changed = true;
-      }
-    });
-  });
-  return changed;
+function makeEmptyDb() {
+  const id = 'p_' + Date.now();
+  return {
+    currentProfile: id,
+    profiles: { [id]: makeEmptyProfile(id, 'Asosiy kompaniya') }
+  };
+}
+
+function makeEmptyProfile(id, name) {
+  return { id, name, vehicles: [], customers: [], settings: {}, writtenInvoiceIds: [], manualInvoices: [] };
 }
 
 function getData() {
   const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    return { vehicles: [], customers: [], settings: {} };
-  }
+  if (!fs.existsSync(dbPath)) return makeEmptyDb();
   try {
     const raw = fs.readFileSync(dbPath, 'utf8');
     const data = JSON.parse(raw);
-    if (!_migrated) {
-      _migrated = true;
-      if (runMigrations(data)) {
-        saveData(data);
-        console.log('db.json migratsiya qilindi (SOATO kodlari normalizatsiyasi).');
-      }
-    }
-    return data;
+    return migrate(data);
   } catch (err) {
-    console.error('Error reading database file:', err);
-    // Buzilgan faylni backup qilish (silent wipe'ning oldini olish)
-    try {
-      const backupPath = dbPath + '.bak';
-      fs.copyFileSync(dbPath, backupPath);
-      console.warn('Buzilgan db.json backup qilindi:', backupPath);
-    } catch (_) {}
-    return { vehicles: [], customers: [], settings: {} };
+    console.error('db.json o\'qishda xatolik:', err);
+    try { fs.copyFileSync(dbPath, dbPath + '.bak'); } catch (_) {}
+    return makeEmptyDb();
   }
+}
+
+function migrate(data) {
+  // v1 → v2: flat structure → profiles
+  if (!data.profiles) {
+    const id = 'p_default';
+    const profile = makeEmptyProfile(id, data.settings?.senderName || 'Asosiy kompaniya');
+    profile.vehicles = data.vehicles || [];
+    profile.customers = data.customers || [];
+    profile.settings = data.settings || {};
+    profile.writtenInvoiceIds = data.writtenInvoiceIds || [];
+    profile.manualInvoices = data.manualInvoices || [];
+    const migrated = { currentProfile: id, profiles: { [id]: profile } };
+    saveData(migrated);
+    console.log('db.json v1→v2 migratsiyasi bajarildi (profiles)');
+    return migrated;
+  }
+
+  // SOATO normalization across all profiles
+  let changed = false;
+  Object.values(data.profiles).forEach(profile => {
+    (profile.customers || []).forEach(c => {
+      (c.addresses || []).forEach(a => {
+        if (String(a.oblastCode) === '33') { a.oblastCode = '1726'; changed = true; }
+      });
+    });
+  });
+  if (changed) saveData(data);
+  return data;
 }
 
 function saveData(data) {
   try {
     fs.writeFileSync(getDbPath(), JSON.stringify(data, null, 2), 'utf8');
-    return true;
   } catch (err) {
-    console.error('Error writing database file:', err);
-    return false;
+    console.error('db.json yozishda xatolik:', err);
   }
 }
 
+function current() {
+  const data = getData();
+  let id = data.currentProfile;
+  let profile = data.profiles[id];
+  if (!profile) {
+    id = Object.keys(data.profiles)[0];
+    data.currentProfile = id;
+    profile = data.profiles[id];
+    saveData(data);
+  }
+  return { data, profile };
+}
+
+function save(data, profile) {
+  data.profiles[profile.id] = profile;
+  saveData(data);
+}
+
 module.exports = {
-  getVehicles: () => {
-    return getData().vehicles || [];
-  },
-  
-  saveVehicle: (vehicle) => {
+  // ─── Profil boshqaruvi ───────────────────────────────────────────────────────
+  getProfiles: () => {
     const data = getData();
-    if (!data.vehicles) data.vehicles = [];
-    
+    return {
+      currentId: data.currentProfile,
+      list: Object.values(data.profiles).map(p => ({ id: p.id, name: p.name }))
+    };
+  },
+
+  createProfile: (name) => {
+    const data = getData();
+    const id = 'p_' + Date.now();
+    data.profiles[id] = makeEmptyProfile(id, name || 'Yangi kompaniya');
+    data.currentProfile = id;
+    saveData(data);
+    return { id, name: data.profiles[id].name };
+  },
+
+  switchProfile: (id) => {
+    const data = getData();
+    if (!data.profiles[id]) throw new Error('Profil topilmadi: ' + id);
+    data.currentProfile = id;
+    saveData(data);
+    return true;
+  },
+
+  renameProfile: (id, name) => {
+    const data = getData();
+    if (!data.profiles[id]) throw new Error('Profil topilmadi');
+    data.profiles[id].name = name;
+    saveData(data);
+    return true;
+  },
+
+  deleteProfile: (id) => {
+    const data = getData();
+    if (Object.keys(data.profiles).length <= 1) throw new Error("Oxirgi profilni o'chirib bo'lmaydi");
+    delete data.profiles[id];
+    if (data.currentProfile === id) data.currentProfile = Object.keys(data.profiles)[0];
+    saveData(data);
+    return true;
+  },
+
+  // ─── Mashinalar ──────────────────────────────────────────────────────────────
+  getVehicles: () => {
+    const { profile } = current();
+    return profile.vehicles || [];
+  },
+
+  saveVehicle: (vehicle) => {
+    const { data, profile } = current();
+    if (!profile.vehicles) profile.vehicles = [];
     if (vehicle.id) {
-      const idx = data.vehicles.findIndex(v => v.id === vehicle.id);
-      if (idx !== -1) {
-        data.vehicles[idx] = { ...data.vehicles[idx], ...vehicle };
-      }
+      const idx = profile.vehicles.findIndex(v => v.id === vehicle.id);
+      if (idx !== -1) profile.vehicles[idx] = { ...profile.vehicles[idx], ...vehicle };
+      else profile.vehicles.push(vehicle);
     } else {
       vehicle.id = 'v_' + Date.now();
-      data.vehicles.push(vehicle);
+      profile.vehicles.push(vehicle);
     }
-    saveData(data);
+    save(data, profile);
     return vehicle;
   },
-  
+
   deleteVehicle: (id) => {
-    const data = getData();
-    if (!data.vehicles) return false;
-    const initialLen = data.vehicles.length;
-    data.vehicles = data.vehicles.filter(v => v.id !== id);
-    if (data.vehicles.length < initialLen) {
-      saveData(data);
-      return true;
-    }
+    const { data, profile } = current();
+    const len = (profile.vehicles || []).length;
+    profile.vehicles = (profile.vehicles || []).filter(v => v.id !== id);
+    if (profile.vehicles.length < len) { save(data, profile); return true; }
     return false;
   },
 
+  // ─── Mijozlar ────────────────────────────────────────────────────────────────
   getCustomers: () => {
-    return getData().customers || [];
+    const { profile } = current();
+    return profile.customers || [];
   },
 
   saveCustomer: (customer) => {
-    const data = getData();
-    if (!data.customers) data.customers = [];
-    
-    const idx = data.customers.findIndex(c => c.tin === customer.tin);
-    if (idx !== -1) {
-      // update
-      data.customers[idx] = { ...data.customers[idx], ...customer };
-    } else {
-      // create
-      data.customers.push(customer);
-    }
-    saveData(data);
+    const { data, profile } = current();
+    if (!profile.customers) profile.customers = [];
+    const idx = profile.customers.findIndex(c => c.tin === customer.tin);
+    if (idx !== -1) profile.customers[idx] = { ...profile.customers[idx], ...customer };
+    else profile.customers.push(customer);
+    save(data, profile);
     return customer;
   },
 
+  // ─── Sozlamalar ──────────────────────────────────────────────────────────────
   getSettings: () => {
-    const settings = getData().settings || {};
-    
-    const dbUrl = settings.soliqApiUrl || '';
-    const dbKey = settings.soliqApiKey || '';
-    
-    const isDemoUrl = !dbUrl || dbUrl.includes('api.soliq.uz/v1/taxpayer') || dbUrl.includes('example.com');
-    const isDemoKey = !dbKey || dbKey.startsWith('demo-');
-    
+    const { profile } = current();
+    const s = profile.settings || {};
+    const isDemoUrl = !s.soliqApiUrl || s.soliqApiUrl.includes('example.com');
+    const isDemoKey = !s.soliqApiKey || s.soliqApiKey.startsWith('demo-');
     return {
-      ...settings,
-      soliqApiUrl: isDemoUrl ? (process.env.SOLIQ_API_URL || dbUrl) : dbUrl,
-      soliqApiKey: isDemoKey ? (process.env.SOLIQ_API_KEY || dbKey) : dbKey
+      ...s,
+      soliqApiUrl: isDemoUrl ? (process.env.SOLIQ_API_URL || s.soliqApiUrl) : s.soliqApiUrl,
+      soliqApiKey: isDemoKey ? (process.env.SOLIQ_API_KEY || s.soliqApiKey) : s.soliqApiKey
     };
   },
 
   saveSettings: (settings) => {
-    const data = getData();
-    data.settings = { ...data.settings, ...settings };
-    saveData(data);
-    return data.settings;
+    const { data, profile } = current();
+    profile.settings = { ...profile.settings, ...settings };
+    save(data, profile);
+    return profile.settings;
   },
 
+  // ─── Qo'lda kiritilgan fakturalar ────────────────────────────────────────────
   getManualInvoices: () => {
-    return getData().manualInvoices || [];
+    const { profile } = current();
+    return profile.manualInvoices || [];
   },
 
   saveManualInvoice: (invoice) => {
-    const data = getData();
-    if (!data.manualInvoices) data.manualInvoices = [];
-    
-    if (!invoice.id) {
-      invoice.id = 'manual_' + Date.now();
-    }
-    
-    const idx = data.manualInvoices.findIndex(inv => inv.id === invoice.id);
-    if (idx !== -1) {
-      data.manualInvoices[idx] = { ...data.manualInvoices[idx], ...invoice };
-    } else {
-      data.manualInvoices.push(invoice);
-    }
-    
-    saveData(data);
+    const { data, profile } = current();
+    if (!profile.manualInvoices) profile.manualInvoices = [];
+    if (!invoice.id) invoice.id = 'manual_' + Date.now();
+    const idx = profile.manualInvoices.findIndex(inv => inv.id === invoice.id);
+    if (idx !== -1) profile.manualInvoices[idx] = { ...profile.manualInvoices[idx], ...invoice };
+    else profile.manualInvoices.push(invoice);
+    save(data, profile);
     return invoice;
   },
 
   deleteManualInvoice: (id) => {
-    const data = getData();
-    if (!data.manualInvoices) return false;
-    const initialLen = data.manualInvoices.length;
-    data.manualInvoices = data.manualInvoices.filter(inv => inv.id !== id);
-    if (data.manualInvoices.length < initialLen) {
-      saveData(data);
-      return true;
-    }
+    const { data, profile } = current();
+    const len = (profile.manualInvoices || []).length;
+    profile.manualInvoices = (profile.manualInvoices || []).filter(inv => inv.id !== id);
+    if (profile.manualInvoices.length < len) { save(data, profile); return true; }
     return false;
   },
 
+  // ─── Yozilgan faktura IDlari ─────────────────────────────────────────────────
   getWrittenInvoiceIds: () => {
-    return getData().writtenInvoiceIds || [];
+    const { profile } = current();
+    return profile.writtenInvoiceIds || [];
   },
 
   markInvoiceAsWritten: (id) => {
-    const data = getData();
-    if (!data.writtenInvoiceIds) data.writtenInvoiceIds = [];
-    if (!data.writtenInvoiceIds.includes(id)) {
-      data.writtenInvoiceIds.push(id);
-      saveData(data);
+    const { data, profile } = current();
+    if (!profile.writtenInvoiceIds) profile.writtenInvoiceIds = [];
+    if (!profile.writtenInvoiceIds.includes(id)) {
+      profile.writtenInvoiceIds.push(id);
+      save(data, profile);
     }
     return true;
   },
 
   unmarkInvoiceAsWritten: (id) => {
-    const data = getData();
-    if (!data.writtenInvoiceIds) return false;
-    const initialLen = data.writtenInvoiceIds.length;
-    data.writtenInvoiceIds = data.writtenInvoiceIds.filter(writtenId => writtenId !== id);
-    if (data.writtenInvoiceIds.length < initialLen) {
-      saveData(data);
-      return true;
-    }
+    const { data, profile } = current();
+    const len = (profile.writtenInvoiceIds || []).length;
+    profile.writtenInvoiceIds = (profile.writtenInvoiceIds || []).filter(w => w !== id);
+    if (profile.writtenInvoiceIds.length < len) { save(data, profile); return true; }
     return false;
   }
 };

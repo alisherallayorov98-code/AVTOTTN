@@ -23,6 +23,8 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
     if (customer?.addresses?.length > 0) {
       setAddresses(customer.addresses)
       setAddressObj(customer.addresses[0])
+      // Manzil topildi — darhol auto-split
+      setTimeout(() => triggerAutoSplit(), 0)
     } else {
       // Mijoz topilmadi — Soliq API dan avtomatik olamiz
       const defAddr = { addressText: "Yuklanmoqda...", oblastCode: "1726", rayonCode: "1" }
@@ -149,6 +151,10 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
     if (totalAllocated <= 0) return toast('Taqsimlangan miqdor 0 dan katta bo\'lishi kerak!', 'error')
     if (isOverAllocated) return toast(`Taqsimlangan yuk (${totalAllocated.toFixed(3)} t) faktura miqdoridan (${invoice.quantity} t) oshib ketdi!`, 'error')
     if (!addressObj) return toast('Tushirish manzilini tanlang!', 'error')
+    if (remaining > 0) {
+      const ok = confirm(`Diqqat: ${remaining} t yuk taqsimlanmagan qolmoqda.\nShunday holda Excel yozilsinmi?`)
+      if (!ok) return
+    }
 
     setGenerating(true)
     try {

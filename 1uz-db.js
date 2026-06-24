@@ -152,7 +152,7 @@ function getInvoicesFromFirebird(settings) {
         JOIN CONTACTS c ON d.CONTACT_ID = c.ID
         JOIN DOCUMENT_ITEMS di ON di.DOCUMENT_ID = d.ID
         JOIN ITEMS i ON di.ITEM_ID = i.ID
-        WHERE d.DOC_TYPE = 'INVOICE' AND d.DOC_DATE >= '2026-01-01'
+        WHERE d.DOC_TYPE = 'INVOICE' AND d.DOC_DATE >= '${settings.invoiceDateFrom || new Date().getFullYear() + '-01-01'}'
         ORDER BY d.DOC_DATE DESC, d.DOC_NUM DESC
       `;
 

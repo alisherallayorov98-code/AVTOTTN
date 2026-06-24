@@ -97,6 +97,8 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
   }
 
   const senderTin = settings.senderTin || "305539899";
+  const transportOwnerTin = settings.transportOwnerTin || senderTin;
+  const receiverResponsiblePinfl = settings.receiverResponsiblePinfl || '';
   const senderName = settings.senderName || "SEMENT INSHAOT SAVDO MChJ";
   const loadingAddress = settings.loadingAddress || "массив Янги Хаёт";
 
@@ -181,7 +183,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[22] = 1; // Тип транспорта * (1 - avtomobil)
       row[23] = v.plateNumber || ''; // Гос. номер авто. *
       row[24] = v.vehicleModel || 'SHACMAN'; // Модель авто. *
-      row[25] = ''; // Транспорт принадлежит, ИНН/ПИНФЛ
+      row[25] = Number(transportOwnerTin) || ''; // Транспорт принадлежит, ИНН/ПИНФЛ
       row[26] = v.trailerPlate || ''; // Гос. Номер полуприцепа
       row[27] = v.trailerModel || ''; // Модель полуприцепа
       row[28] = ''; // Гос. Номер прицепа
@@ -206,7 +208,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[42] = ''; // Широта
       row[43] = ''; // Долгота
       
-      row[44] = ''; // Ответственное лицо грузополучателя, ПИНФЛ
+      row[44] = Number(receiverResponsiblePinfl) || ''; // Ответственное лицо грузополучателя, ПИНФЛ
       row[45] = ''; // Номер доверенности
       row[46] = ''; // От
       row[47] = ''; // До
