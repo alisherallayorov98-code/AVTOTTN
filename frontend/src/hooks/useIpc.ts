@@ -82,13 +82,17 @@ export function useInvoices() {
 
 export function useCustomers() {
   const [customers, setCustomers] = useState<any[]>([]);
-  
+  const [loading, setLoading] = useState(true);
+
   const fetchCustomers = async () => {
+    setLoading(true);
     try {
       const data = await window.api.getCustomers();
       setCustomers(data || []);
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -96,7 +100,7 @@ export function useCustomers() {
     fetchCustomers();
   }, []);
 
-  return { customers, refetch: fetchCustomers };
+  return { customers, loading, refetch: fetchCustomers };
 }
 
 export function useSettings() {

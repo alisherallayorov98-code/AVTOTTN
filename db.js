@@ -104,8 +104,10 @@ function migrate(data) {
 function saveData(data) {
   try {
     fs.writeFileSync(getDbPath(), JSON.stringify(data, null, 2), 'utf8');
+    return true;
   } catch (err) {
     console.error('db.json yozishda xatolik:', err);
+    throw new Error('Ma\'lumotlar bazasiga yozishda xatolik: ' + err.message);
   }
 }
 

@@ -33,15 +33,15 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
     return !customer?.addresses?.length
   })
 
-  // Har bir faktura uchun manzil: mijoz bazasi → override → standart
+  // Har bir faktura uchun manzil: override → mijoz bazasi → standart
   const buildAddresses = () => {
     const map: any = {}
     for (const inv of invoices) {
       const customer = customers.find((c: any) => c.tin === inv.buyerTin)
-      if (customer?.addresses?.[0]) {
-        map[inv.id] = customer.addresses[0]
-      } else if (addrOverrides[inv.id]?.trim()) {
+      if (addrOverrides[inv.id]?.trim()) {
         map[inv.id] = { addressText: addrOverrides[inv.id].trim(), oblastCode: '1726', rayonCode: '1' }
+      } else if (customer?.addresses?.[0]) {
+        map[inv.id] = customer.addresses[0]
       } else {
         map[inv.id] = { addressText: 'Manzil ko\'rsatilmagan', oblastCode: '1726', rayonCode: '1' }
       }

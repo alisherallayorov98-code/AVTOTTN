@@ -68,7 +68,8 @@
     "extraResources": [
       "didox_shablon.xlsx",
       "db.json",
-      ".env"
+      ".env",
+      "preload.js"
     ]
   }
 }

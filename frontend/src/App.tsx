@@ -257,7 +257,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
 function InvoicesView() {
   const { invoices, isMock, loading, refetch } = useInvoices()
   const { vehicles } = useVehicles()
-  const { customers, refetch: refetchCustomers } = useCustomers()
+  const { customers, loading: customersLoading, refetch: refetchCustomers } = useCustomers()
   const [search, setSearch] = useState('')
   const [statusTab, setStatusTab] = useState<'pending' | 'written'>('pending')
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
@@ -434,6 +434,7 @@ function InvoicesView() {
           invoice={selectedInvoice}
           vehicles={vehicles}
           customers={customers}
+          customersLoading={customersLoading}
           onClose={() => setSelectedInvoice(null)}
           onComplete={() => { setSelectedInvoice(null); refetch(); refetchCustomers(); }}
         />
@@ -467,7 +468,10 @@ function VehiclesView() {
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
 
-  const filtered = vehicles.filter(v => v.plateNumber.toLowerCase().includes(search.toLowerCase()) || v.driverName.toLowerCase().includes(search.toLowerCase()))
+  const filtered = vehicles.filter(v =>
+    (v.plateNumber || '').toLowerCase().includes(search.toLowerCase()) ||
+    (v.driverName || '').toLowerCase().includes(search.toLowerCase())
+  )
 
   const openAdd = () => { setEditing(null); setShowModal(true) }
   const openEdit = (v: any) => { setEditing(v); setShowModal(true) }

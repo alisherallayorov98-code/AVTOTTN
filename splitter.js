@@ -23,7 +23,7 @@ function autoSplit(totalQuantity, vehicles) {
     // Har trip davrida mashinalarni sig'imi bo'yicha kamayish tartibida saralaymiz
     const vehiclesForTrip = active
       .filter(v => (parseInt(v.maxDailyTrips) || 2) >= trip)
-      .sort((a, b) => b.maxCapacity - a.maxCapacity);
+      .sort((a, b) => (parseFloat(b.maxCapacity) || 0) - (parseFloat(a.maxCapacity) || 0));
     for (const v of vehiclesForTrip) {
       slots.push({ vehicle: v, tripIndex: trip });
     }
@@ -89,7 +89,7 @@ function bulkAutoDispatch(invoices, fleet) {
       available.sort((a, b) => {
         const diff = tripCount[a.id] - tripCount[b.id];
         if (diff !== 0) return diff;
-        return b.maxCapacity - a.maxCapacity;
+        return (parseFloat(b.maxCapacity) || 0) - (parseFloat(a.maxCapacity) || 0);
       });
 
       const vehicle = available[0];

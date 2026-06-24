@@ -48,7 +48,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '..', 'preload.js') // note: dist is inside root, preload is at root. wait, if preload is at root...
+      preload: app.isPackaged
+        ? path.join(process.resourcesPath, 'preload.js')
+        : path.join(__dirname, '..', 'preload.js')
     }
   });
 

@@ -286,19 +286,11 @@ export function registerIpcHandlers() {
     // This requires AdmZip
     const AdmZip = require('adm-zip');
 
-    // PDF'lar yoziladigan papka — har doim Desktop (paketlangan .exe ichidagi papka read-only)
-    const outputDir = path.join(require('os').homedir(), 'Desktop', 'Yuklangan_PDFlar');
-    if (fs.existsSync(outputDir)) {
-      const files = fs.readdirSync(outputDir);
-      for (const file of files) {
-        const filePath = path.join(outputDir, file);
-        if (fs.statSync(filePath).isFile()) {
-          fs.unlinkSync(filePath);
-        }
-      }
-    } else {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    // PDF'lar vaqtinchalik papkaga yoziladi — har yuklab olish alohida papkada
+    const now = new Date();
+    const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    const outputDir = path.join(require('os').homedir(), 'Desktop', 'Yuklangan_PDFlar', stamp);
+    fs.mkdirSync(outputDir, { recursive: true });
 
     const mainZip = new AdmZip(Buffer.from(buffer));
     const mainEntries = mainZip.getEntries();
@@ -395,9 +387,18 @@ export function registerIpcHandlers() {
     return await pdfParser.parseInvoicePdf(Buffer.from(buffer));
   });
 
-  // ZIP ajratilgan PDFlar papkasidagi barcha fayllarni parse qilish
+  // ZIP ajratilgan PDFlar — oxirgi subfolder'dan o'qiladi
   ipcMain.handle('parse-pdfs-from-folder', async () => {
-    const outputDir = path.join(require('os').homedir(), 'Desktop', 'Yuklangan_PDFlar');
+    const baseDir = path.join(require('os').homedir(), 'Desktop', 'Yuklangan_PDFlar');
+    if (!fs.existsSync(baseDir)) return [];
+    // Eng so'nggi subfolder'ni topamiz
+    const subfolders = fs.readdirSync(baseDir)
+      .map(name => ({ name, time: fs.statSync(path.join(baseDir, name)).mtimeMs }))
+      .filter(e => fs.statSync(path.join(baseDir, e.name)).isDirectory())
+      .sort((a, b) => b.time - a.time);
+    const outputDir = subfolders.length > 0
+      ? path.join(baseDir, subfolders[0].name)
+      : baseDir;
     if (!fs.existsSync(outputDir)) return [];
     const files = fs.readdirSync(outputDir).filter(f => f.toLowerCase().endsWith('.pdf'));
     const results = [];

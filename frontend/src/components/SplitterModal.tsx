@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Truck, MapPin, Plus, Package, Zap, Search, Loader2 } from 'lucide-react'
 import { toast } from './Toast'
 import { RegionDistrictPicker } from './RegionDistrictPicker'
 
-export function SplitterModal({ invoice, vehicles, customers, onClose, onComplete }: any) {
+export function SplitterModal({ invoice, vehicles, customers, customersLoading, onClose, onComplete }: any) {
   const [selectedVehicles, setSelectedVehicles] = useState<any[]>([])
   const [allocations, setAllocations] = useState<any[]>([])
   const [addressObj, setAddressObj] = useState<any>(null)
   const [generating, setGenerating] = useState(false)
   const [searching, setSearching] = useState(false)
-  const [autoSplitDone, setAutoSplitDone] = useState(false)
+  const autoSplitDoneRef = useRef(false)
 
   const [addresses, setAddresses] = useState<any[]>([])
   const [newAddressForm, setNewAddressForm] = useState(false)
@@ -18,6 +18,8 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
   const [newAddrRayon, setNewAddrRayon] = useState('11')
 
   useEffect(() => {
+    // Mijozlar yuklanguncha kutamiz — aks holda har doim Soliq API chaqiriladi
+    if (customersLoading) return
     const customer = customers.find((c: any) => c.tin === invoice.buyerTin)
 
     if (customer?.addresses?.length > 0) {
@@ -62,14 +64,14 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
         triggerAutoSplit()
       }
     }
-  }, [invoice, customers])
+  }, [invoice, customers, customersLoading])
 
   // Barcha faol mashinalarni tanlash va avtomatik taqsimlash
   const triggerAutoSplit = async () => {
-    if (autoSplitDone) return
+    if (autoSplitDoneRef.current) return
+    autoSplitDoneRef.current = true
     const activeVehicles = vehicles.filter((v: any) => v.isActive !== false)
     if (activeVehicles.length === 0) return
-    setAutoSplitDone(true)
     setSelectedVehicles(activeVehicles)
     try {
       const result = await window.api.splitCargo(invoice.quantity, activeVehicles.map((v: any) => v.id))
@@ -129,7 +131,7 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
     try {
       const comp = await window.api.searchCompany(invoice.buyerTin)
       if (comp?.address) {
-        const newAddr = { addressText: comp.address, oblastCode: String(comp.oblastCode || '33'), rayonCode: String(comp.rayonCode || '5') }
+        const newAddr = { addressText: comp.address, oblastCode: String(comp.oblastCode || '1726'), rayonCode: String(comp.rayonCode || '1') }
         setAddresses(prev => {
           if (prev.some(a => a.addressText === newAddr.addressText)) return prev
           return [...prev, newAddr]
