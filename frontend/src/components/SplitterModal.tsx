@@ -58,7 +58,7 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
       const newAllocs = result.allocations.map((a: any) => ({
         vehicleId: a.vehicle.id,
         quantity: a.quantityAllocated,
-        tripIndex: 1,
+        tripIndex: a.tripIndex || 1,
       }))
       setAllocations(newAllocs)
       if (result.remaining > 0) {

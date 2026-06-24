@@ -116,15 +116,21 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
     return DEFAULT_UNIT_CODE;
   };
 
+  // Har faktura uchun alohida tartib raqami hisoblagichi
+  const invoiceAllocIndex = {};
+
   // 3. Taqsimlangan yuklar asosida qatorlarni to'ldirish (Row 5 dan boshlab)
-  bulkAllocations.forEach((alloc, index) => {
+  bulkAllocations.forEach((alloc) => {
     const inv = alloc.invoice;
     const v = alloc.vehicle;
     const qty = alloc.quantityAllocated;
     const unloadingAddr = alloc.unloadingAddressObj || {};
-    
-    // ETTN identifikatori va tartib raqami (Invoice number + mashina indeksi)
-    const ttnNumber = `${inv.invoiceNumber}-${index + 1}`;
+
+    // Har faktura uchun: INV001-1, INV001-2, INV002-1, INV002-2 ...
+    const invKey = String(inv.id || inv.invoiceNumber);
+    if (!invoiceAllocIndex[invKey]) invoiceAllocIndex[invKey] = 0;
+    invoiceAllocIndex[invKey]++;
+    const ttnNumber = `${inv.invoiceNumber}-${invoiceAllocIndex[invKey]}`;
     
     // Faktura ichidagi tovarlarni olamiz (agar items massivi bo'lsa, aks holda fallback)
     const items = inv.items && inv.items.length > 0 ? inv.items : [{
@@ -182,7 +188,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[29] = ''; // Модель прицепа
       row[30] = Number(v.driverPinfl) || ''; // Водитель, ПИНФЛ *
       row[31] = Number(v.driverPinfl) || ''; // Ответственное лицо, доставляющий груз, ПИНФЛ *
-      row[32] = itemIdx + 1; // п.п Груза *
+      row[32] = invoiceAllocIndex[invKey]; // п.п Груза * (TTN tartib raqami)
       
       // Ortish manzili (Loading)
       row[33] = Number(settings.loadingOblast) || 18; // slice: loadingOblast
@@ -205,7 +211,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[46] = ''; // От
       row[47] = ''; // До
       row[48] = ''; // ID  доверенности
-      row[49] = itemIdx + 1; // п.п Товаров *
+      row[49] = itemIdx + 1; // п.п Товаров * (tovar qatori tartib raqami)
       row[50] = ''; // ИНН/ПИНФЛ комитента
       row[51] = item.productMxik || '02523002001236004'; // ИКПУ *
       row[52] = item.productName || 'Sement'; // Описание товаров *

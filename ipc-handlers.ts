@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell } from 'electron';
+import { ipcMain, dialog, shell, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import log from 'electron-log';
@@ -117,11 +117,9 @@ export function registerIpcHandlers() {
       }
 
       const excelBuffer = excelGen.generateEttnExcel(invoice, fullAllocations, unloadingAddressObj, settings);
-      const filename = `Didox_ETTN_Inv_${safeFileSegment(invoice.invoiceNumber)}_Split_${Date.now()}.xlsx`;
-      
-      // Save to Desktop/Yuklangan_Fakturalar folder for easy access
-      const desktopPath = require('os').homedir() + '/Desktop';
-      const outputDir = path.join(desktopPath, 'Yaratilgan_ETTN_Excel');
+      const filename = `ETTN_${safeFileSegment(invoice.invoiceNumber)}_${Date.now()}.xlsx`;
+
+      const outputDir = path.join(app.getPath('downloads'), 'AvtoETTN');
       if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
       
       const outputPath = path.join(outputDir, filename);
@@ -167,10 +165,9 @@ export function registerIpcHandlers() {
     if (bulkAllocations.length === 0) throw new Error("Faktura yoki mashina ma'lumotlari topilmadi.");
     
     const excelBuffer = excelGen.generateBulkEttnExcel(bulkAllocations, settings);
-    const filename = `Didox_ETTN_Ommaviy_Split_${Date.now()}.xlsx`;
-    
-    const desktopPath = require('os').homedir() + '/Desktop';
-    const outputDir = path.join(desktopPath, 'Yaratilgan_ETTN_Excel');
+    const filename = `ETTN_Ommaviy_${Date.now()}.xlsx`;
+
+    const outputDir = path.join(app.getPath('downloads'), 'AvtoETTN');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
     
     const outputPath = path.join(outputDir, filename);

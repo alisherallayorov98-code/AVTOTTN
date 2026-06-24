@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers } from 'lucide-react'
+import { FileText, Truck, Settings, Package, Search, Phone, User, Trash2, Pencil, FileUp, Layers } from 'lucide-react'
 import { useInvoices, useVehicles, useSettings, useCustomers } from './hooks/useIpc'
 import { SplitterModal } from './components/SplitterModal'
 import { VehicleModal } from './components/VehicleModal'
-import { ManualInvoiceModal } from './components/ManualInvoiceModal'
 import { PdfImportModal } from './components/PdfImportModal'
 import { BulkDispatchModal } from './components/BulkDispatchModal'
 import { Toaster, toast } from './components/Toast'
@@ -42,7 +41,7 @@ function App() {
           <div className="bg-primary/10 text-primary p-2 rounded-lg">
             <Package size={24} />
           </div>
-          <h1 className="font-bold text-xl tracking-tight">AvtoTTY</h1>
+          <h1 className="font-bold text-xl tracking-tight">AvtoETTN</h1>
         </div>
 
         <nav className="flex-1 px-4 py-2 space-y-2">
@@ -67,8 +66,8 @@ function App() {
         </nav>
 
         <div className="p-4 m-4 bg-primary/10 rounded-xl">
-          <p className="text-xs text-primary/80 font-medium text-center">1Uz-to-Didox ETTN</p>
-          <p className="text-[10px] text-muted-foreground text-center mt-1">v2.0 Premium</p>
+          <p className="text-xs text-primary/80 font-medium text-center">AvtoETTN</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">v1.0.0</p>
         </div>
       </aside>
 
@@ -139,23 +138,23 @@ function InvoicesView() {
   const { vehicles } = useVehicles()
   const { customers, refetch: refetchCustomers } = useCustomers()
   const [search, setSearch] = useState('')
+  const [statusTab, setStatusTab] = useState<'pending' | 'written'>('pending')
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showPdfImport, setShowPdfImport] = useState(false)
-  const [showManual, setShowManual] = useState(false)
-  const [editingManual, setEditingManual] = useState<any>(null)
   const [showBulk, setShowBulk] = useState(false)
 
   if (loading) {
     return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
   }
 
-  const filtered = invoices.filter(i =>
+  const pendingInvoices = invoices.filter(i => !i.isWritten)
+  const writtenInvoices = invoices.filter(i => i.isWritten)
+
+  const filtered = (statusTab === 'pending' ? pendingInvoices : writtenInvoices).filter(i =>
     (i.invoiceNumber || '').toLowerCase().includes(search.toLowerCase()) ||
     (i.buyerName || '').toLowerCase().includes(search.toLowerCase())
   )
-
-  const isManual = (inv: any) => typeof inv.id === 'string' && inv.id.startsWith('manual_')
 
   const toggleSelect = (id: string) =>
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -169,18 +168,20 @@ function InvoicesView() {
     }
   }
 
-  const deleteManual = async (inv: any) => {
-    if (!confirm(`№ ${inv.invoiceNumber} fakturasini o'chirasizmi?`)) return
-    try {
-      await window.api.deleteManualInvoice(inv.id)
-      toast("Faktura o'chirildi", 'info')
-      refetch()
-    } catch (e: any) {
-      toast("Xatolik: " + e.message, 'error')
-    }
-  }
-
   const selectedInvoices = invoices.filter(i => selectedIds.includes(i.id))
+
+  const tabBtn = (tab: 'pending' | 'written', label: string, count: number) => (
+    <button
+      onClick={() => { setStatusTab(tab); setSelectedIds([]) }}
+      className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+        statusTab === tab
+          ? 'bg-primary text-primary-foreground shadow'
+          : 'text-muted-foreground hover:bg-secondary'
+      }`}
+    >
+      {label} <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${statusTab === tab ? 'bg-white/20' : 'bg-secondary'}`}>{count}</span>
+    </button>
+  )
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -188,21 +189,17 @@ function InvoicesView() {
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 text-sm">
           <span className="text-lg">⚠️</span>
           <span>
-            <b>Demo rejim:</b> 1Uz bazasiga ulanmagan — quyidagi fakturalar namunaviy (soxta) ma'lumotlar.
+            <b>Demo rejim:</b> 1Uz bazasiga ulanmagan.
             Haqiqiy ma'lumot uchun <b>Sozlamalar → 1Uz Ma'lumotlar Bazasi</b> bo'limida <b>.fdb</b> fayl yo'lini ko'rsating.
           </span>
         </div>
       )}
+
+      {/* Tab va amallar qatori */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-md min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <input
-            type="text"
-            placeholder="Faktura raqami yoki xaridor nomi..."
-            className="w-full pl-10 pr-4 py-2 bg-secondary/50 border-transparent rounded-lg focus:bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-xl">
+          {tabBtn('pending', 'Kutilmoqda', pendingInvoices.length)}
+          {tabBtn('written', 'Yozilgan', writtenInvoices.length)}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {selectedIds.length > 0 && (
@@ -211,10 +208,7 @@ function InvoicesView() {
             </button>
           )}
           <button onClick={() => setShowPdfImport(true)} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
-            <FileUp size={16} /> PDF / ZIP
-          </button>
-          <button onClick={() => { setEditingManual(null); setShowManual(true) }} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
-            <Plus size={16} /> Qo'lda faktura
+            <FileUp size={16} /> PDF / ZIP yuklash
           </button>
           <button onClick={refetch} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:opacity-90 transition-opacity font-medium text-sm">
             Yangilash
@@ -222,34 +216,46 @@ function InvoicesView() {
         </div>
       </div>
 
+      {/* Qidiruv */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+        <input
+          type="text"
+          placeholder="Faktura raqami yoki xaridor nomi..."
+          className="w-full pl-10 pr-4 py-2 bg-secondary/50 border-transparent rounded-lg focus:bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
       <div className="bg-card rounded-xl border shadow-sm overflow-hidden bg-background">
         <table className="w-full text-sm text-left">
           <thead className="bg-secondary/40 text-muted-foreground">
             <tr>
-              <th className="pl-4 pr-2 py-4 w-10"></th>
+              {statusTab === 'pending' && <th className="pl-4 pr-2 py-4 w-10"></th>}
               <th className="px-6 py-4 font-medium">Faktura №</th>
               <th className="px-6 py-4 font-medium">Sana</th>
               <th className="px-6 py-4 font-medium">Xaridor</th>
               <th className="px-6 py-4 font-medium">Yuk (tonna)</th>
               <th className="px-6 py-4 font-medium text-right">Summa</th>
-              <th className="px-6 py-4 font-medium text-center">Holat</th>
               <th className="px-6 py-4 font-medium text-right">Amallar</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">Fakturalar topilmadi.</td>
+                <td colSpan={statusTab === 'pending' ? 7 : 6} className="px-6 py-12 text-center text-muted-foreground">
+                  {statusTab === 'pending' ? 'Kutilayotgan fakturalar yo\'q.' : 'Yozilgan fakturalar yo\'q.'}
+                </td>
               </tr>
             ) : filtered.map(inv => (
               <tr key={inv.id} className="hover:bg-secondary/20 transition-colors group">
-                <td className="pl-4 pr-2 py-4">
-                  <input type="checkbox" checked={selectedIds.includes(inv.id)} onChange={() => toggleSelect(inv.id)} className="w-4 h-4 rounded text-primary focus:ring-primary" />
-                </td>
-                <td className="px-6 py-4 font-medium">
-                  {inv.invoiceNumber}
-                  {isManual(inv) && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary align-middle">qo'lda</span>}
-                </td>
+                {statusTab === 'pending' && (
+                  <td className="pl-4 pr-2 py-4">
+                    <input type="checkbox" checked={selectedIds.includes(inv.id)} onChange={() => toggleSelect(inv.id)} className="w-4 h-4 rounded text-primary focus:ring-primary" />
+                  </td>
+                )}
+                <td className="px-6 py-4 font-medium">{inv.invoiceNumber}</td>
                 <td className="px-6 py-4 text-muted-foreground">{(inv.invoiceDate || '').substring(0, 10)}</td>
                 <td className="px-6 py-4">
                   <div className="font-medium text-foreground truncate max-w-[250px]">{inv.buyerName}</div>
@@ -261,34 +267,18 @@ function InvoicesView() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right font-medium">{Number(inv.totalSum).toLocaleString('ru-RU')} UZS</td>
-                <td className="px-6 py-4 text-center">
-                  <button onClick={() => toggleWritten(inv)} title="Holatni almashtirish">
-                    {inv.isWritten ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-medium ring-1 ring-inset ring-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
-                        Yozilgan
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-medium ring-1 ring-inset ring-amber-500/20 hover:bg-amber-500/20 transition-colors">
-                        Kutilmoqda
-                      </span>
-                    )}
-                  </button>
-                </td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isManual(inv) && (
-                      <>
-                        <button onClick={() => { setEditingManual(inv); setShowManual(true) }} className="p-1.5 text-muted-foreground hover:text-primary rounded-md" title="Tahrirlash">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => deleteManual(inv)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-md" title="O'chirish">
-                          <Trash2 size={14} />
-                        </button>
-                      </>
+                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {statusTab === 'written' && (
+                      <button onClick={() => toggleWritten(inv)} className="px-3 py-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 rounded-md text-xs font-medium transition-colors">
+                        Qaytarish
+                      </button>
                     )}
-                    <button onClick={() => setSelectedInvoice(inv)} className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-md text-xs font-medium transition-colors">
-                      Splitter
-                    </button>
+                    {statusTab === 'pending' && (
+                      <button onClick={() => setSelectedInvoice(inv)} className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-md text-xs font-medium transition-colors">
+                        TTN yozish
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -311,14 +301,6 @@ function InvoicesView() {
         <PdfImportModal
           onClose={() => setShowPdfImport(false)}
           onImported={() => { setShowPdfImport(false); refetch(); }}
-        />
-      )}
-
-      {showManual && (
-        <ManualInvoiceModal
-          invoice={editingManual}
-          onClose={() => setShowManual(false)}
-          onSaved={() => { setShowManual(false); refetch(); refetchCustomers(); }}
         />
       )}
 
