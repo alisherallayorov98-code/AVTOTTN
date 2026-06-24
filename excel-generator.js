@@ -200,8 +200,8 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[38] = Number(settings.senderResponsiblePinfl) || ''; // Ответственное лицо грузоотправителя, ПИНФЛ
       
       // Tushirish manzili (Delivery)
-      row[39] = Number(unloadingAddr.oblastCode) || 33; // Область * (Yuk tushirish)
-      row[40] = Number(unloadingAddr.rayonCode) || 5; // Район *
+      row[39] = Number(unloadingAddr.oblastCode) || 1726; // Область * (Yuk tushirish)
+      row[40] = Number(unloadingAddr.rayonCode) || 1; // Район *
       row[41] = unloadingAddr.addressText || 'Mijoz manzili'; // Улица, Дом *
       row[42] = ''; // Широта
       row[43] = ''; // Долгота

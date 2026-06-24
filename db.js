@@ -94,6 +94,12 @@ function getData() {
     return data;
   } catch (err) {
     console.error('Error reading database file:', err);
+    // Buzilgan faylni backup qilish (silent wipe'ning oldini olish)
+    try {
+      const backupPath = dbPath + '.bak';
+      fs.copyFileSync(dbPath, backupPath);
+      console.warn('Buzilgan db.json backup qilindi:', backupPath);
+    } catch (_) {}
     return { vehicles: [], customers: [], settings: {} };
   }
 }

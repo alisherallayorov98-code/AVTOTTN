@@ -1,6 +1,6 @@
 {
   "name": "avtottn",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "1Uz buxgalteriya dasturidan ETTN yaratish va Excelga split qilish",
   "main": "dist/electron-main.js",
   "scripts": {

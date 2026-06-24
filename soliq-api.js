@@ -145,6 +145,7 @@ function saveToLocalCustomers(comp) {
   const existing = customers.find(c => c.tin === comp.tin);
   
   if (existing) {
+    if (!existing.addresses) existing.addresses = [];
     if (comp.address && !existing.addresses.some(a => a.addressText === comp.address)) {
       existing.addresses.push({
         addressText: comp.address,

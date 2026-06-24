@@ -36,6 +36,12 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
     return map
   }
 
+  // Manzilsiz fakturalar ro'yxati (ogohlantirish uchun)
+  const missingAddressInvoices = invoices.filter((inv: any) => {
+    const customer = customers.find((c: any) => c.tin === inv.buyerTin)
+    return !customer?.addresses?.length
+  })
+
   const handleGenerate = async () => {
     if (allocations.length === 0) return toast("Taqsimot bo'sh", 'error')
     setGenerating(true)
@@ -103,6 +109,20 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                   </div>
                 )
               })}
+
+              {missingAddressInvoices.length > 0 && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex gap-3">
+                  <AlertTriangle className="text-blue-500 shrink-0" size={20} />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-600">{missingAddressInvoices.length} ta faktura uchun manzil topilmadi — standart Toshkent manzili ishlatiladi:</p>
+                    <ul className="mt-1 text-muted-foreground text-xs space-y-0.5">
+                      {missingAddressInvoices.map((inv: any) => (
+                        <li key={inv.id}>№ {inv.invoiceNumber} · {inv.buyerName} (STIR: {inv.buyerTin})</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
 
               {remaining.length > 0 && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex gap-3">

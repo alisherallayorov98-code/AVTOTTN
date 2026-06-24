@@ -8,7 +8,7 @@ function parseRowValues(rowText) {
   const left = parts[0];
   const right = parts[1];
   
-  const unitMatch = left.match(/^[a-zA-Zа-яА-ЯёЁ\s`']+/);
+  const unitMatch = left.match(/^[a-zA-Zа-яА-ЯёЁ³²¹\s`'·\/]+/);
   const unitName = unitMatch ? unitMatch[0].trim() : 'tonna';
   const leftNoUnit = left.substring(unitName.length);
   
@@ -95,7 +95,14 @@ async function parseInvoicePdf(buffer) {
       for (; j < Math.min(i + 10, lines.length); j++) {
         const nextLine = lines[j].trim();
         const nextLineLower = nextLine.toLowerCase();
-        const hasUnit = nextLineLower.includes('тонна') || nextLineLower.includes('tonna') || nextLineLower.includes('кг') || nextLineLower.includes('kg') || nextLineLower.includes('шт') || nextLineLower.includes('dona');
+        const hasUnit = nextLineLower.includes('тонна') || nextLineLower.includes('tonna') ||
+          nextLineLower.includes('тн') || nextLineLower.includes('tn') ||
+          nextLineLower.includes('кг') || nextLineLower.includes('kg') ||
+          nextLineLower.includes('шт') || nextLineLower.includes('dona') ||
+          nextLineLower.includes('м³') || nextLineLower.includes('м3') ||
+          nextLineLower.includes('литр') || nextLineLower.includes('litr') ||
+          nextLineLower.includes('метр') || nextLineLower.includes('metr') ||
+          nextLineLower.includes('дона') || nextLineLower.includes('сони');
         
         if (nextLine.includes('%') && hasUnit) {
           valueRow = nextLine;

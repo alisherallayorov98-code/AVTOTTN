@@ -142,7 +142,7 @@ export function registerIpcHandlers() {
         };
       });
 
-      let unloadingAddressObj = { addressText: '', oblastCode: '33', rayonCode: '5' };
+      let unloadingAddressObj = { addressText: '', oblastCode: '1726', rayonCode: '1' };
       if (unloadingAddress) {
         if (typeof unloadingAddress === 'object') {
           unloadingAddressObj = unloadingAddress;
@@ -180,53 +180,56 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle('bulk-generate-excel', async (_, allocations, unloadingAddresses) => {
-    const { invoices } = await db1Uz.getInvoices();
-    const manualInvoices = dbMethods.getManualInvoices();
-    const allInvoices = [...manualInvoices, ...invoices];
-    const allVehicles = dbMethods.getVehicles();
-    const settings = dbMethods.getSettings();
-    
-    const bulkAllocations: any[] = [];
-    
-    allocations.forEach((a: any) => {
-      const invoice = allInvoices.find(inv => inv.id === a.invoiceId);
-      const vehicle = allVehicles.find((v: any) => v.id === a.vehicleId);
-      const unloadingAddr = unloadingAddresses[a.invoiceId];
-      
-      if (invoice && vehicle) {
-        bulkAllocations.push({
-          invoice,
-          vehicle,
-          quantityAllocated: parseFloat(a.quantity),
-          unloadingAddressObj: unloadingAddr
-        });
-      }
-    });
-    
-    if (bulkAllocations.length === 0) throw new Error("Faktura yoki mashina ma'lumotlari topilmadi.");
-    
-    const excelBuffer = excelGen.generateBulkEttnExcel(bulkAllocations, settings);
-    const filename = `ETTN_Ommaviy_${Date.now()}.xlsx`;
+    try {
+      const { invoices } = await db1Uz.getInvoices();
+      const manualInvoices = dbMethods.getManualInvoices();
+      const allInvoices = [...manualInvoices, ...invoices];
+      const allVehicles = dbMethods.getVehicles();
+      const settings = dbMethods.getSettings();
 
-    const outputDir = path.join(app.getPath('downloads'), 'AvtoETTN');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-    
-    const outputPath = path.join(outputDir, filename);
-    fs.writeFileSync(outputPath, excelBuffer);
-    
-    const invoiceIdsToMark = [...new Set(allocations.map((a: any) => a.invoiceId))];
-    invoiceIdsToMark.forEach((id: any) => dbMethods.markInvoiceAsWritten(id));
+      const bulkAllocations: any[] = [];
 
-    // Har bir faktura uchun mijoz manzilini saqlash
-    for (const alloc of bulkAllocations) {
-      if (alloc.invoice?.buyerTin && alloc.unloadingAddressObj) {
-        saveCustomerAddress(alloc.invoice.buyerTin, alloc.invoice.buyerName, alloc.unloadingAddressObj);
+      allocations.forEach((a: any) => {
+        const invoice = allInvoices.find((inv: any) => inv.id === a.invoiceId);
+        const vehicle = allVehicles.find((v: any) => v.id === a.vehicleId);
+        const unloadingAddr = unloadingAddresses[a.invoiceId];
+
+        if (invoice && vehicle) {
+          bulkAllocations.push({
+            invoice,
+            vehicle,
+            quantityAllocated: parseFloat(a.quantity),
+            unloadingAddressObj: unloadingAddr
+          });
+        }
+      });
+
+      if (bulkAllocations.length === 0) throw new Error("Faktura yoki mashina ma'lumotlari topilmadi.");
+
+      const excelBuffer = excelGen.generateBulkEttnExcel(bulkAllocations, settings);
+      const filename = `ETTN_Ommaviy_${Date.now()}.xlsx`;
+
+      const outputDir = path.join(app.getPath('downloads'), 'AvtoETTN');
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+      const outputPath = path.join(outputDir, filename);
+      fs.writeFileSync(outputPath, excelBuffer);
+
+      const invoiceIdsToMark = [...new Set(allocations.map((a: any) => a.invoiceId))];
+      invoiceIdsToMark.forEach((id: any) => dbMethods.markInvoiceAsWritten(id));
+
+      for (const alloc of bulkAllocations) {
+        if (alloc.invoice?.buyerTin && alloc.unloadingAddressObj) {
+          saveCustomerAddress(alloc.invoice.buyerTin, alloc.invoice.buyerName, alloc.unloadingAddressObj);
+        }
       }
+
+      shell.showItemInFolder(outputPath);
+      return { success: true, path: outputPath, filename };
+    } catch (err: any) {
+      log.error('Ommaviy Excel avlodida xatolik:', err);
+      throw new Error(err.message);
     }
-    
-    shell.showItemInFolder(outputPath);
-
-    return { success: true, path: outputPath, filename };
   });
 
   ipcMain.handle('save-manual-invoice', (_, invoice) => {
@@ -242,8 +245,7 @@ export function registerIpcHandlers() {
     const AdmZip = require('adm-zip');
 
     // PDF'lar yoziladigan papka — har doim Desktop (paketlangan .exe ichidagi papka read-only)
-    const desktopPath = require('os').homedir() + '/Desktop';
-    const outputDir = path.join(desktopPath, 'Yuklangan_PDFlar');
+    const outputDir = path.join(require('os').homedir(), 'Desktop', 'Yuklangan_PDFlar');
     if (fs.existsSync(outputDir)) {
       const files = fs.readdirSync(outputDir);
       for (const file of files) {
