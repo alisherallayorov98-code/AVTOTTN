@@ -22,14 +22,14 @@ declare global {
 
 function App() {
   const [activeTab, setActiveTab] = useState<'invoices' | 'vehicles' | 'settings'>('invoices')
-  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [updateState, setUpdateState] = useState<'idle' | 'available' | 'downloading' | 'ready'>('idle')
+  const [updateProgress, setUpdateProgress] = useState(0)
 
   useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI.onUpdateDownloaded(() => {
-        setUpdateAvailable(true)
-      })
-    }
+    if (!window.electronAPI) return
+    window.electronAPI.onUpdateAvailable(() => setUpdateState('available'))
+    window.electronAPI.onUpdateProgress((p: number) => { setUpdateState('downloading'); setUpdateProgress(p) })
+    window.electronAPI.onUpdateDownloaded(() => setUpdateState('ready'))
   }, [])
 
   return (
@@ -67,7 +67,26 @@ function App() {
 
         <div className="p-4 m-4 bg-primary/10 rounded-xl">
           <p className="text-xs text-primary/80 font-medium text-center">AvtoETTN</p>
-          <p className="text-[10px] text-muted-foreground text-center mt-1">v1.2.1</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">v1.3.0</p>
+          {updateState === 'available' && (
+            <p className="text-[10px] text-amber-500 text-center mt-1 animate-pulse">Yangilanish yuklanmoqda...</p>
+          )}
+          {updateState === 'downloading' && (
+            <div className="mt-2">
+              <div className="w-full bg-primary/20 rounded-full h-1.5">
+                <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${updateProgress}%` }} />
+              </div>
+              <p className="text-[10px] text-primary text-center mt-1">{updateProgress}% yuklandi</p>
+            </div>
+          )}
+          {updateState === 'ready' && (
+            <button
+              onClick={() => window.electronAPI?.restartApp()}
+              className="mt-2 w-full text-[11px] bg-emerald-500 text-white rounded-lg py-1.5 font-medium hover:bg-emerald-600 transition-colors animate-pulse"
+            >
+              Yangilash — O'rnatish
+            </button>
+          )}
         </div>
       </aside>
 
@@ -98,21 +117,6 @@ function App() {
         </div>
       </main>
 
-      {/* Auto Updater Toast */}
-      {updateAvailable && (
-        <div className="fixed bottom-6 right-6 bg-primary text-primary-foreground p-4 rounded-xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-8">
-          <div>
-            <h4 className="font-bold">Yangi versiya yuklandi!</h4>
-            <p className="text-sm opacity-90">O'rnatish uchun dasturni qayta ishga tushiring.</p>
-          </div>
-          <button 
-            onClick={() => window.electronAPI?.restartApp()} 
-            className="px-4 py-2 bg-background text-foreground rounded-lg text-sm font-semibold hover:bg-secondary transition-colors"
-          >
-            Yangilash
-          </button>
-        </div>
-      )}
     </div>
   )
 }

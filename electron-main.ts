@@ -62,17 +62,30 @@ function createWindow() {
   });
 
   autoUpdater.logger = log;
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.autoInstallOnAppQuit = true; // dastur yopilganda avtomatik o'rnatish
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info);
     mainWindow?.webContents.send('update-available', info);
   });
 
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update-progress', Math.round(progress.percent));
+  });
+
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded:', info);
     mainWindow?.webContents.send('update-downloaded', info);
   });
+
+  autoUpdater.on('error', (err) => {
+    log.warn('Auto-updater xatolik:', err?.message);
+  });
+
+  // Ishga tushgandan 3 soniya o'tib tekshirish (ilova to'liq yuklansin)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(e => log.warn('Update check failed:', e?.message));
+  }, 3000);
 }
 
 process.on('uncaughtException', (err) => {
