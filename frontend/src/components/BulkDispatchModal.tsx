@@ -31,7 +31,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
     const map: any = {}
     for (const inv of invoices) {
       const customer = customers.find((c: any) => c.tin === inv.buyerTin)
-      map[inv.id] = customer?.addresses?.[0] || { addressText: 'Mijoz manzili', oblastCode: '33', rayonCode: '5' }
+      map[inv.id] = customer?.addresses?.[0] || { addressText: 'Mijoz manzili', oblastCode: '1726', rayonCode: '1' }
     }
     return map
   }

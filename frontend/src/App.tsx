@@ -24,12 +24,14 @@ function App() {
   const [activeTab, setActiveTab] = useState<'invoices' | 'vehicles' | 'settings'>('invoices')
   const [updateState, setUpdateState] = useState<'idle' | 'available' | 'downloading' | 'ready'>('idle')
   const [updateProgress, setUpdateProgress] = useState(0)
+  const [appVersion, setAppVersion] = useState('...')
 
   useEffect(() => {
     if (!window.electronAPI) return
     window.electronAPI.onUpdateAvailable(() => setUpdateState('available'))
     window.electronAPI.onUpdateProgress((p: number) => { setUpdateState('downloading'); setUpdateProgress(p) })
     window.electronAPI.onUpdateDownloaded(() => setUpdateState('ready'))
+    window.electronAPI.getAppVersion?.().then((v: string) => setAppVersion(v))
   }, [])
 
   return (
@@ -67,7 +69,7 @@ function App() {
 
         <div className="p-4 m-4 bg-primary/10 rounded-xl">
           <p className="text-xs text-primary/80 font-medium text-center">AvtoETTN</p>
-          <p className="text-[10px] text-muted-foreground text-center mt-1">v1.3.0</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">v{appVersion}</p>
           {updateState === 'available' && (
             <p className="text-[10px] text-amber-500 text-center mt-1 animate-pulse">Yangilanish yuklanmoqda...</p>
           )}
@@ -163,6 +165,19 @@ function InvoicesView() {
   const toggleSelect = (id: string) =>
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
+  const isImported = (inv: any) => typeof inv.id === 'string' && inv.id.startsWith('manual_')
+
+  const deleteImported = async (inv: any) => {
+    if (!confirm(`№ ${inv.invoiceNumber} fakturasini o'chirasizmi?`)) return
+    try {
+      await window.api.deleteManualInvoice(inv.id)
+      toast("Faktura o'chirildi", 'info')
+      refetch()
+    } catch (e: any) {
+      toast("Xatolik: " + e.message, 'error')
+    }
+  }
+
   const toggleWritten = async (inv: any) => {
     try {
       await window.api.toggleInvoiceWritten(inv.id, !inv.isWritten)
@@ -213,6 +228,9 @@ function InvoicesView() {
           )}
           <button onClick={() => setShowPdfImport(true)} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
             <FileUp size={16} /> PDF / ZIP yuklash
+          </button>
+          <button onClick={() => window.electronAPI?.openDownloadsFolder?.()} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm" title="Tayyor Excel fayllar papkasini ochish">
+            Tayyor fayllar
           </button>
           <button onClick={refetch} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:opacity-90 transition-opacity font-medium text-sm">
             Yangilash
@@ -273,6 +291,11 @@ function InvoicesView() {
                 <td className="px-6 py-4 text-right font-medium">{Number(inv.totalSum).toLocaleString('ru-RU')} UZS</td>
                 <td className="px-6 py-4 text-right whitespace-nowrap">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isImported(inv) && (
+                      <button onClick={() => deleteImported(inv)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-md" title="O'chirish">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                     {statusTab === 'written' && (
                       <button onClick={() => toggleWritten(inv)} className="px-3 py-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 rounded-md text-xs font-medium transition-colors">
                         Qaytarish
@@ -345,6 +368,15 @@ function VehiclesView() {
     }
   }
 
+  const toggleActive = async (v: any) => {
+    try {
+      await window.api.saveVehicle({ ...v, isActive: !v.isActive })
+      refetch()
+    } catch (e: any) {
+      toast("Xatolik: " + e.message, 'error')
+    }
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between gap-4">
@@ -382,7 +414,11 @@ function VehiclesView() {
                   <p className="text-xs text-muted-foreground">{v.vehicleModel || 'Model kiritilmagan'}</p>
                 </div>
               </div>
-              <span className={`w-2 h-2 rounded-full ${v.isActive !== false ? 'bg-emerald-500' : 'bg-destructive'}`}></span>
+              <button
+                onClick={() => toggleActive(v)}
+                title={v.isActive !== false ? 'Nofaol qilish' : 'Faol qilish'}
+                className={`w-3 h-3 rounded-full transition-colors hover:ring-2 hover:ring-offset-1 ${v.isActive !== false ? 'bg-emerald-500 hover:ring-emerald-400' : 'bg-destructive hover:ring-destructive/50'}`}
+              />
             </div>
 
             <div className="space-y-3 flex-1">

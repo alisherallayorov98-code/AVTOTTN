@@ -4,7 +4,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_event, info) => callback(info)),
   onUpdateProgress: (callback) => ipcRenderer.on('update-progress', (_event, percent) => callback(percent)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (_event, info) => callback(info)),
-  restartApp: () => ipcRenderer.send('restart-app')
+  restartApp: () => ipcRenderer.send('restart-app'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openDownloadsFolder: () => ipcRenderer.invoke('open-downloads-folder')
 });
 
 contextBridge.exposeInMainWorld('api', {
@@ -24,5 +26,6 @@ contextBridge.exposeInMainWorld('api', {
   saveManualInvoice: (invoice) => ipcRenderer.invoke('save-manual-invoice', invoice),
   deleteManualInvoice: (id) => ipcRenderer.invoke('delete-manual-invoice', id),
   extractPdfs: (buffer) => ipcRenderer.invoke('extract-pdfs', buffer),
-  parsePdf: (buffer) => ipcRenderer.invoke('parse-pdf', buffer)
+  parsePdf: (buffer) => ipcRenderer.invoke('parse-pdf', buffer),
+  parsePdfsFromFolder: () => ipcRenderer.invoke('parse-pdfs-from-folder')
 });

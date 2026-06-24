@@ -9,6 +9,7 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
   const [addressObj, setAddressObj] = useState<any>(null)
   const [generating, setGenerating] = useState(false)
   const [searching, setSearching] = useState(false)
+  const [autoSplitDone, setAutoSplitDone] = useState(false)
 
   const [addresses, setAddresses] = useState<any[]>([])
   const [newAddressForm, setNewAddressForm] = useState(false)
@@ -51,10 +52,34 @@ export function SplitterModal({ invoice, vehicles, customers, onClose, onComplet
             setAddresses([fallback])
             setAddressObj(fallback)
           })
-          .finally(() => setSearching(false))
+          .finally(() => {
+            setSearching(false)
+            triggerAutoSplit()
+          })
+      } else {
+        triggerAutoSplit()
       }
     }
   }, [invoice, customers])
+
+  // Barcha faol mashinalarni tanlash va avtomatik taqsimlash
+  const triggerAutoSplit = async () => {
+    if (autoSplitDone) return
+    const activeVehicles = vehicles.filter((v: any) => v.isActive !== false)
+    if (activeVehicles.length === 0) return
+    setAutoSplitDone(true)
+    setSelectedVehicles(activeVehicles)
+    try {
+      const result = await window.api.splitCargo(invoice.quantity, activeVehicles.map((v: any) => v.id))
+      setAllocations(result.allocations.map((a: any) => ({
+        vehicleId: a.vehicle.id,
+        quantity: a.quantityAllocated,
+        tripIndex: a.tripIndex || 1,
+      })))
+    } catch (e) {
+      // silent
+    }
+  }
 
   const toggleVehicle = (v: any) => {
     if (selectedVehicles.find(sv => sv.id === v.id)) {

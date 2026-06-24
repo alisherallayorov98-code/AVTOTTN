@@ -46,6 +46,14 @@ function saveCustomerAddress(tin: any, name: any, addrObj: any) {
 }
 
 export function registerIpcHandlers() {
+  ipcMain.handle('get-app-version', () => app.getVersion());
+
+  ipcMain.handle('open-downloads-folder', () => {
+    const dir = path.join(app.getPath('downloads'), 'AvtoETTN');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    shell.openPath(dir);
+  });
+
   ipcMain.handle('get-invoices', async () => {
     const data = await db1Uz.getInvoices();
     const manualInvoices = dbMethods.getManualInvoices();
@@ -341,5 +349,23 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('parse-pdf', async (_, buffer) => {
     return await pdfParser.parseInvoicePdf(Buffer.from(buffer));
+  });
+
+  // ZIP ajratilgan PDFlar papkasidagi barcha fayllarni parse qilish
+  ipcMain.handle('parse-pdfs-from-folder', async () => {
+    const outputDir = path.join(require('os').homedir(), 'Desktop', 'Yuklangan_PDFlar');
+    if (!fs.existsSync(outputDir)) return [];
+    const files = fs.readdirSync(outputDir).filter(f => f.toLowerCase().endsWith('.pdf'));
+    const results = [];
+    for (const fileName of files) {
+      try {
+        const buffer = fs.readFileSync(path.join(outputDir, fileName));
+        const inv = await pdfParser.parseInvoicePdf(buffer);
+        results.push({ fileName, inv });
+      } catch (e) {
+        results.push({ fileName, inv: null });
+      }
+    }
+    return results;
   });
 }
