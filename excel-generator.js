@@ -118,8 +118,9 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
     return DEFAULT_UNIT_CODE;
   };
 
-  // Har faktura uchun alohida tartib raqami hisoblagichi
+  // Har faktura uchun alohida tartib raqami, va fayldagi umumiy TTN hisoblagichi
   const invoiceAllocIndex = {};
+  let globalTtnSeq = 0; // п.п ТТН — butun fayl bo'yicha ketma-ket integer
 
   // 3. Taqsimlangan yuklar asosida qatorlarni to'ldirish (Row 5 dan boshlab)
   bulkAllocations.forEach((alloc) => {
@@ -132,6 +133,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
     const invKey = String(inv.id || inv.invoiceNumber);
     if (!invoiceAllocIndex[invKey]) invoiceAllocIndex[invKey] = 0;
     invoiceAllocIndex[invKey]++;
+    globalTtnSeq++;
     const ttnNumber = `${inv.invoiceNumber}-${invoiceAllocIndex[invKey]}`;
     
     // Faktura ichidagi tovarlarni olamiz (agar items massivi bo'lsa, aks holda fallback)
@@ -158,7 +160,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       // 62 ta ustundan iborat qator (Array) yaratish
       const row = new Array(62).fill('');
 
-      row[0] = ttnNumber; // п.п ТТН *
+      row[0] = globalTtnSeq; // п.п ТТН * — fayl bo'yicha ketma-ket integer
       row[1] = 2; // Тип перевозки * (2 - Sotuvchidan xaridorga)
       row[2] = ttnNumber; // Номер ТТН *
       row[3] = formatDate(inv.invoiceDate); // Дата ТТН *

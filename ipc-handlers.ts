@@ -223,7 +223,14 @@ export function registerIpcHandlers() {
 
       const bulkAllocations: any[] = [];
 
-      allocations.forEach((a: any) => {
+      // tripIndex bo'yicha saralash — TTN raqamlari to'g'ri ketma-ketlikda chiqsin
+      const sortedAllocations = [...allocations].sort((a: any, b: any) => {
+        if (a.invoiceId < b.invoiceId) return -1;
+        if (a.invoiceId > b.invoiceId) return 1;
+        return (a.tripIndex || 1) - (b.tripIndex || 1);
+      });
+
+      sortedAllocations.forEach((a: any) => {
         const invoice = allInvoices.find((inv: any) => inv.id === a.invoiceId);
         const vehicle = allVehicles.find((v: any) => v.id === a.vehicleId);
         const unloadingAddr = unloadingAddresses[a.invoiceId];
@@ -233,7 +240,8 @@ export function registerIpcHandlers() {
             invoice,
             vehicle,
             quantityAllocated: parseFloat(a.quantity),
-            unloadingAddressObj: unloadingAddr
+            unloadingAddressObj: unloadingAddr,
+            tripIndex: a.tripIndex || 1
           });
         }
       });

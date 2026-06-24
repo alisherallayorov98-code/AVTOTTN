@@ -130,8 +130,12 @@ function getInvoicesFromFirebird(settings) {
         return reject(err);
       }
       
+      const dateFrom = /^\d{4}-\d{2}-\d{2}$/.test(settings.invoiceDateFrom || '')
+        ? settings.invoiceDateFrom
+        : `${new Date().getFullYear()}-01-01`;
+
       const query = `
-        SELECT 
+        SELECT
           d.ID as id,
           d.DOC_NUM as invoiceNumber,
           d.DOC_DATE as invoiceDate,
@@ -152,26 +156,26 @@ function getInvoicesFromFirebird(settings) {
         JOIN CONTACTS c ON d.CONTACT_ID = c.ID
         JOIN DOCUMENT_ITEMS di ON di.DOCUMENT_ID = d.ID
         JOIN ITEMS i ON di.ITEM_ID = i.ID
-        WHERE d.DOC_TYPE = 'INVOICE' AND d.DOC_DATE >= '${settings.invoiceDateFrom || new Date().getFullYear() + '-01-01'}'
+        WHERE d.DOC_TYPE = 'INVOICE' AND d.DOC_DATE >= ?
         ORDER BY d.DOC_DATE DESC, d.DOC_NUM DESC
       `;
 
-      dbConn.query(query, function(err, result) {
+      dbConn.query(query, [dateFrom], function(err, result) {
         dbConn.detach();
         if (err) {
           return reject(err);
         }
         
-        // Group raw SQL rows by Document ID
+        // Group raw SQL rows by Document ID (lowercase_keys:true — barcha kalitlar kichik harf)
         const invoicesMap = {};
         for (const row of result) {
-          const docId = row.id || row.ID;
-          const invoiceNumber = row.invoicenumber || row.invoiceNumber || row.DOC_NUM;
-          const invoiceDate = row.invoicedate || row.invoiceDate || row.DOC_DATE;
-          const buyerTin = row.buyertin || row.buyerTin || row.TIN;
-          const buyerName = row.buyername || row.buyerName || row.NAME;
-          const contractNumber = row.contractnumber || row.contractNumber || row.CONTRACT_NUM;
-          const contractDate = row.contractdate || row.contractDate || row.CONTRACT_DATE;
+          const docId = row.id;
+          const invoiceNumber = row.invoicenumber;
+          const invoiceDate = row.invoicedate;
+          const buyerTin = row.buyertin;
+          const buyerName = row.buyername;
+          const contractNumber = row.contractnumber;
+          const contractDate = row.contractdate;
           
           if (!invoicesMap[docId]) {
             invoicesMap[docId] = {
@@ -189,20 +193,20 @@ function getInvoicesFromFirebird(settings) {
           }
           
           const itemQty = parseFloat(row.quantity) || 0;
-          const itemTotalSum = parseFloat(row.totalsum) || parseFloat(row.total_sum) || 0;
-          
+          const itemTotalSum = parseFloat(row.totalsum) || 0;
+
           invoicesMap[docId].quantity += itemQty;
           invoicesMap[docId].totalSum += itemTotalSum;
-          
+
           invoicesMap[docId].items.push({
-            productName: row.productname || row.productName || '',
-            productMxik: row.productmxik || row.productMxik || '',
-            productBarcode: row.productbarcode || row.productBarcode || '',
-            unitName: row.unitname || row.unitName || 'tonna',
+            productName: row.productname || '',
+            productMxik: row.productmxik || '',
+            productBarcode: row.productbarcode || '',
+            unitName: row.unitname || 'tonna',
             quantity: itemQty,
             price: parseFloat(row.price) || 0,
-            vatRate: parseFloat(row.vatrate) || parseFloat(row.vat_rate) || 0,
-            vatSum: parseFloat(row.vatsum) || parseFloat(row.vat_sum) || 0,
+            vatRate: parseFloat(row.vatrate) || 0,
+            vatSum: parseFloat(row.vatsum) || 0,
             totalSum: itemTotalSum
           });
         }
