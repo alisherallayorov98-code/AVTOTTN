@@ -2,6 +2,39 @@ const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');
 
+// Viloyatlar o'rtasidagi taxminiy yo'l masofalari (km)
+// SOATO kodlari: 1726=Toshkent sh, 1727=Toshkent v, 1718=Samarqand, 1730=Farg'ona,
+// 1703=Andijon, 1706=Buxoro, 1708=Jizzax, 1710=Qashqadaryo, 1712=Navoiy,
+// 1714=Namangan, 1724=Sirdaryo, 1722=Surxondaryo, 1733=Xorazm, 1735=Qoraqalpog'iston
+const OBLAST_DISTANCES = {
+  '1726': { '1726': 15,   '1727': 40,   '1718': 330,  '1730': 430,  '1703': 400,  '1706': 590,  '1708': 200,  '1710': 500,  '1712': 460,  '1714': 310,  '1724': 100,  '1722': 680,  '1733': 1100, '1735': 1400 },
+  '1727': { '1726': 40,   '1727': 50,   '1718': 350,  '1730': 450,  '1703': 420,  '1706': 610,  '1708': 210,  '1710': 520,  '1712': 480,  '1714': 330,  '1724': 110,  '1722': 700,  '1733': 1120, '1735': 1420 },
+  '1718': { '1726': 330,  '1727': 350,  '1718': 75,   '1730': 380,  '1703': 440,  '1706': 260,  '1708': 130,  '1710': 180,  '1712': 180,  '1714': 430,  '1724': 230,  '1722': 460,  '1733': 780,  '1735': 1030 },
+  '1730': { '1726': 430,  '1727': 450,  '1718': 380,  '1730': 30,   '1703': 90,   '1706': 640,  '1708': 530,  '1710': 580,  '1712': 560,  '1714': 130,  '1724': 530,  '1722': 660,  '1733': 1200, '1735': 1500 },
+  '1703': { '1726': 400,  '1727': 420,  '1718': 440,  '1730': 90,   '1703': 20,   '1706': 700,  '1708': 590,  '1710': 640,  '1712': 620,  '1714': 150,  '1724': 500,  '1722': 720,  '1733': 1260, '1735': 1560 },
+  '1706': { '1726': 590,  '1727': 610,  '1718': 260,  '1730': 640,  '1703': 700,  '1706': 40,   '1708': 390,  '1710': 280,  '1712': 120,  '1714': 700,  '1724': 490,  '1722': 520,  '1733': 490,  '1735': 730  },
+  '1708': { '1726': 200,  '1727': 210,  '1718': 130,  '1730': 530,  '1703': 590,  '1706': 390,  '1708': 30,   '1710': 310,  '1712': 310,  '1714': 530,  '1724': 130,  '1722': 590,  '1733': 880,  '1735': 1130 },
+  '1710': { '1726': 500,  '1727': 520,  '1718': 180,  '1730': 580,  '1703': 640,  '1706': 280,  '1708': 310,  '1710': 50,   '1712': 280,  '1714': 630,  '1724': 400,  '1722': 210,  '1733': 760,  '1735': 1010 },
+  '1712': { '1726': 460,  '1727': 480,  '1718': 180,  '1730': 560,  '1703': 620,  '1706': 120,  '1708': 310,  '1710': 280,  '1712': 40,   '1714': 660,  '1724': 360,  '1722': 490,  '1733': 600,  '1735': 850  },
+  '1714': { '1726': 310,  '1727': 330,  '1718': 430,  '1730': 130,  '1703': 150,  '1706': 700,  '1708': 530,  '1710': 630,  '1712': 660,  '1714': 20,   '1724': 410,  '1722': 730,  '1733': 1270, '1735': 1570 },
+  '1724': { '1726': 100,  '1727': 110,  '1718': 230,  '1730': 530,  '1703': 500,  '1706': 490,  '1708': 130,  '1710': 400,  '1712': 360,  '1714': 410,  '1724': 40,   '1722': 580,  '1733': 980,  '1735': 1280 },
+  '1722': { '1726': 680,  '1727': 700,  '1718': 460,  '1730': 660,  '1703': 720,  '1706': 520,  '1708': 590,  '1710': 210,  '1712': 490,  '1714': 730,  '1724': 580,  '1722': 50,   '1733': 1010, '1735': 1260 },
+  '1733': { '1726': 1100, '1727': 1120, '1718': 780,  '1730': 1200, '1703': 1260, '1706': 490,  '1708': 880,  '1710': 760,  '1712': 600,  '1714': 1270, '1724': 980,  '1722': 1010, '1733': 30,   '1735': 200  },
+  '1735': { '1726': 1400, '1727': 1420, '1718': 1030, '1730': 1500, '1703': 1560, '1706': 730,  '1708': 1130, '1710': 1010, '1712': 850,  '1714': 1570, '1724': 1280, '1722': 1260, '1733': 200,  '1735': 80   },
+};
+
+function getOblastDistance(loadingOblastCode, unloadingOblastCode) {
+  const from = String(loadingOblastCode || '1726');
+  const to = String(unloadingOblastCode || '1726');
+  if (OBLAST_DISTANCES[from] && OBLAST_DISTANCES[from][to] !== undefined) {
+    return OBLAST_DISTANCES[from][to];
+  }
+  if (OBLAST_DISTANCES[to] && OBLAST_DISTANCES[to][from] !== undefined) {
+    return OBLAST_DISTANCES[to][from];
+  }
+  return from === to ? 50 : 200;
+}
+
 /**
  * Sana formatini DD.MM.YYYY ko'rinishiga o'tkazish
  */
@@ -97,15 +130,11 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
   }
 
   const senderTin = settings.senderTin || "305539899";
-  const transportOwnerTin = settings.transportOwnerTin || senderTin;
-  const receiverResponsiblePinfl = settings.receiverResponsiblePinfl || '';
   const senderName = settings.senderName || "SEMENT INSHAOT SAVDO MChJ";
   const loadingAddress = settings.loadingAddress || "массив Янги Хаёт";
 
   // ETTN qo'shimcha qiymatlari (Sozlamalardan, standart qiymat bilan)
-  const deliveryDistance = parseFloat(settings.deliveryDistance) || 1;       // Umumiy masofa (km)
-  const deliveryCostPerKm = parseFloat(settings.deliveryCostPerKm) || 1;     // 1 km narxi (so'm)
-  const deliveryCostTotal = parseFloat((deliveryDistance * deliveryCostPerKm).toFixed(2)) || 1;
+  const deliveryCostPerKm = parseFloat(settings.deliveryCostPerKm) || 1;     // Uchinchi tomon: 1 km narxi (so'm)
   const expeditorTin = settings.expeditorTin || senderTin;                   // Ekspeditor STIR (bo'sh -> jo'natuvchi)
   const unitCodes = settings.unitCodes || { tonna: 1629438 };                // Birlik nomi -> Didox kodi
   const DEFAULT_UNIT_CODE = 1629438; // tonna
@@ -185,7 +214,9 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[22] = 1; // Тип транспорта * (1 - avtomobil)
       row[23] = v.plateNumber || ''; // Гос. номер авто. *
       row[24] = v.vehicleModel || 'SHACMAN'; // Модель авто. *
-      row[25] = Number(transportOwnerTin) || ''; // Транспорт принадлежит, ИНН/ПИНФЛ
+      // Transport egasi: har mashina uchun → sozlamadagi → jo'natuvchi STIR
+      const vehicleTransportOwnerTin = v.transportOwnerTin || settings.transportOwnerTin || senderTin;
+      row[25] = Number(vehicleTransportOwnerTin) || ''; // Транспорт принадлежит, ИНН/ПИНФЛ
       row[26] = v.trailerPlate || ''; // Гос. Номер полуприцепа
       row[27] = v.trailerModel || ''; // Модель полуприцепа
       row[28] = ''; // Гос. Номер прицепа
@@ -210,7 +241,8 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[42] = ''; // Широта
       row[43] = ''; // Долгота
       
-      row[44] = Number(receiverResponsiblePinfl) || ''; // Ответственное лицо грузополучателя, ПИНФЛ
+      // Qabul qiluvchi mas'ul = haydovchi PINFL (yetkazib berishda haydovchi mas'ul)
+      row[44] = Number(v.driverPinfl) || ''; // Ответственное лицо грузополучателя, ПИНФЛ
       row[45] = ''; // Номер доверенности
       row[46] = ''; // От
       row[47] = ''; // До
@@ -225,9 +257,16 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[56] = itemSumWithoutVat; // Сумма (без НДС) *
       row[57] = itemQty; // Брутто *
       row[58] = itemQty; // Нетто *
-      row[59] = deliveryDistance; // Общее расстояние * (Sozlamalardan)
-      row[60] = deliveryCostPerKm; // Стоимость доставки за 1 км * (Sozlamalardan)
-      row[61] = deliveryCostTotal; // Стоимость доставки (в сумах) * (masofa × 1km narxi)
+      // Masofa: yuklash viloyatidan tushirish viloyatigacha avtomatik
+      const autoDistance = getOblastDistance(settings.loadingOblast, unloadingAddr.oblastCode);
+      // Yetkazish narxi: korxona yoki mijoz mashinasi → 0; uchinchi tomon → masofa × narx
+      const ownerType = v.vehicleOwnerType || 'own';
+      const isThirdParty = ownerType === 'third_party';
+      const calcCostPerKm = isThirdParty ? deliveryCostPerKm : 0;
+      const calcCostTotal = isThirdParty ? parseFloat((autoDistance * deliveryCostPerKm).toFixed(2)) : 0;
+      row[59] = autoDistance;    // Общее расстояние *
+      row[60] = calcCostPerKm;   // Стоимость доставки за 1 км *
+      row[61] = calcCostTotal;   // Стоимость доставки (в сумах) *
 
       newDataRows.push(row);
     });

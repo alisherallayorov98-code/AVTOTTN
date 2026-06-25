@@ -595,6 +595,7 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
   const [testing, setTesting] = useState(false)
   const [renamingProfile, setRenamingProfile] = useState(false)
   const [profileName, setProfileName] = useState('')
+  const [showSoliqApi, setShowSoliqApi] = useState(false)
 
   useEffect(() => {
     if (!loading) {
@@ -692,20 +693,13 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
                 <input type="text" value={form.senderTin || ''} onChange={e => update('senderTin', e.target.value)} className={inputCls + ' font-mono'} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Transport egasi STIR/PINFL</label>
-                <input type="text" value={form.transportOwnerTin || ''} onChange={e => update('transportOwnerTin', e.target.value)} className={inputCls + ' font-mono'} placeholder={form.senderTin || 'Jo\'natuvchi STIR'} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Jo'natuvchi mas'ul JShShIR (PINFL)</label>
                 <input type="text" value={form.senderResponsiblePinfl || ''} onChange={e => update('senderResponsiblePinfl', e.target.value)} className={inputCls + ' font-mono'} />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Qabul qiluvchi mas'ul JShShIR (PINFL)</label>
-                <input type="text" value={form.receiverResponsiblePinfl || ''} onChange={e => update('receiverResponsiblePinfl', e.target.value)} className={inputCls + ' font-mono'} />
-              </div>
             </div>
+            <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2">
+              Transport egasi va qabul qiluvchi mas'ul — har bir mashina ma'lumotlarida alohida kiritiladi (Mashinalar bo'limi).
+            </p>
           </div>
         </section>
 
@@ -787,24 +781,34 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
           </div>
         </section>
 
-        {/* Soliq API */}
+        {/* Soliq API — yashirin, faqat texnik foydalanuvchilar uchun */}
         <section className="bg-card border rounded-xl overflow-hidden bg-background">
-          <div className="px-6 py-4 border-b bg-secondary/30">
-            <h3 className="font-semibold text-lg flex items-center gap-2">
-              <Search size={18} className="text-primary" />
-              Soliq API (STIR qidirish)
+          <button
+            type="button"
+            onClick={() => setShowSoliqApi(v => !v)}
+            className="w-full px-6 py-4 flex items-center justify-between bg-secondary/30 hover:bg-secondary/50 transition-colors"
+          >
+            <h3 className="font-semibold text-base flex items-center gap-2 text-muted-foreground">
+              <Settings size={16} className="text-muted-foreground" />
+              Kengaytirilgan sozlamalar (Soliq API)
             </h3>
-          </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">API URL <span className="text-xs">(STIR uchun %s)</span></label>
-              <input type="text" value={form.soliqApiUrl || ''} onChange={e => update('soliqApiUrl', e.target.value)} className={inputCls + ' font-mono'} />
+            <ChevronDown size={16} className={`text-muted-foreground transition-transform ${showSoliqApi ? 'rotate-180' : ''}`} />
+          </button>
+          {showSoliqApi && (
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2">
+                Bu sozlamalar STIR orqali mijoz manzilini avtomatik topish uchun ishlatiladi. Odatda o'zgartirish shart emas.
+              </p>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">API URL <span className="text-xs">(STIR uchun %s)</span></label>
+                <input type="text" value={form.soliqApiUrl || ''} onChange={e => update('soliqApiUrl', e.target.value)} className={inputCls + ' font-mono'} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">API Kalit (Token)</label>
+                <input type="password" value={form.soliqApiKey || ''} onChange={e => update('soliqApiKey', e.target.value)} className={inputCls + ' font-mono'} />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">API Kalit (Token)</label>
-              <input type="text" value={form.soliqApiKey || ''} onChange={e => update('soliqApiKey', e.target.value)} className={inputCls + ' font-mono'} />
-            </div>
-          </div>
+          )}
         </section>
 
         {/* ETTN qiymatlari (Yetkazib berish, ekspeditor, birlik kodlari) */}
@@ -816,29 +820,24 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
             </h3>
           </div>
           <div className="p-6 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-secondary/30 rounded-lg px-4 py-3 text-sm text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Yetkazish masofasi va narxi</p>
+              <p>Masofa — yuklash manzili viloyatidan tushirish manzili viloyatigacha avtomatik hisoblanadi.</p>
+              <p>Narx: korxona yoki mijoz mashinasi = <b>0 so'm</b>, uchinchi tomon = quyidagi sozlamadan olinadi.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Umumiy masofa (km)</label>
-                <input type="number" value={form.deliveryDistance ?? ''} onChange={e => update('deliveryDistance', e.target.value)} placeholder="1" className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">1 km narxi (so'm)</label>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
+                  Uchinchi tomon yetkazish narxi (so'm/km)
+                  <span className="text-xs ml-1 text-muted-foreground">(Boshqa birov mashinasi uchun)</span>
+                </label>
                 <input type="number" value={form.deliveryCostPerKm ?? ''} onChange={e => update('deliveryCostPerKm', e.target.value)} placeholder="1" className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Yetkazish narxi (jami)</label>
-                <input
-                  type="text"
-                  disabled
-                  value={((parseFloat(form.deliveryDistance) || 1) * (parseFloat(form.deliveryCostPerKm) || 1)).toLocaleString('ru-RU')}
-                  className={inputCls + ' bg-secondary/40 cursor-not-allowed'}
-                />
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Ekspeditor STIR/PINFL <span className="text-xs">(bo'sh → jo'natuvchi STIR)</span></label>
+                <input type="text" value={form.expeditorTin || ''} onChange={e => update('expeditorTin', e.target.value)} placeholder={form.senderTin || 'Jo\'natuvchi STIR'} className={inputCls + ' font-mono'} />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Ekspeditor STIR/PINFL <span className="text-xs">(bo'sh qoldirsangiz — jo'natuvchi STIR ishlatiladi)</span></label>
-              <input type="text" value={form.expeditorTin || ''} onChange={e => update('expeditorTin', e.target.value)} placeholder={form.senderTin || 'Jo\'natuvchi STIR'} className={inputCls + ' font-mono max-w-sm'} />
             </div>
 
             <div>

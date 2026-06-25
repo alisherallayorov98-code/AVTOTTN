@@ -12,6 +12,8 @@ const empty = {
   driverPhone: '',
   carrierName: '',
   carrierTin: '',
+  transportOwnerTin: '',
+  vehicleOwnerType: 'own',
   maxCapacity: 40,
   maxDailyTrips: 2,
   isActive: true,
@@ -103,17 +105,38 @@ export function VehicleModal({ vehicle, onClose, onSaved }: any) {
             </div>
           </div>
 
-          {/* Tashuvchi */}
+          {/* Mashina egaligi */}
           <div>
-            <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Tashuvchi (Yuk tashuvchi tashkilot)</h3>
+            <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Mashina egaligi va transport egasi</h3>
             <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Mashina turi</label>
+                <select
+                  className={inputCls}
+                  value={form.vehicleOwnerType ?? 'own'}
+                  onChange={e => update('vehicleOwnerType', e.target.value)}
+                >
+                  <option value="own">Korxona o'z mashinasi (yetkazish narxi: 0 so'm)</option>
+                  <option value="client">Mijoz mashinasi (yetkazish narxi: 0 so'm)</option>
+                  <option value="third_party">Uchinchi tomon mashinasi (yetkazish narxi: sozlamadan)</option>
+                </select>
+              </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Tashkilot nomi</label>
-                <input className={inputCls} value={form.carrierName ?? ''} onChange={e => update('carrierName', e.target.value)} />
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
+                  Transport egasi STIR/PINFL
+                  <span className="text-xs ml-1 text-muted-foreground">(bo'sh → sozlamadagi STIR)</span>
+                </label>
+                <input className={inputCls + ' font-mono'} placeholder="Bo'sh qoldirsangiz kompaniya STIR ishlatiladi" value={form.transportOwnerTin ?? ''} onChange={e => update('transportOwnerTin', e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Tashuvchi STIR/PINFL</label>
-                <input className={inputCls + ' font-mono'} value={form.carrierTin ?? ''} onChange={e => update('carrierTin', e.target.value)} />
+                <input className={inputCls + ' font-mono'} placeholder="Bo'sh qoldirsangiz kompaniya STIR ishlatiladi" value={form.carrierTin ?? ''} onChange={e => update('carrierTin', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Tashkilot nomi</label>
+                <input className={inputCls} value={form.carrierName ?? ''} onChange={e => update('carrierName', e.target.value)} />
               </div>
             </div>
           </div>
