@@ -14,6 +14,7 @@ const empty = {
   carrierTin: '',
   transportOwnerTin: '',
   vehicleOwnerType: 'own',
+  customerTin: '',
   maxCapacity: 40,
   maxDailyTrips: 2,
   isActive: true,
@@ -21,7 +22,7 @@ const empty = {
 
 const inputCls = "w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
 
-export function VehicleModal({ vehicle, onClose, onSaved }: any) {
+export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any) {
   const [form, setForm] = useState<any>({ ...empty, ...(vehicle || {}) })
   const [saving, setSaving] = useState(false)
   const isEdit = !!vehicle?.id
@@ -114,13 +115,42 @@ export function VehicleModal({ vehicle, onClose, onSaved }: any) {
                 <select
                   className={inputCls}
                   value={form.vehicleOwnerType ?? 'own'}
-                  onChange={e => update('vehicleOwnerType', e.target.value)}
+                  onChange={e => {
+                    update('vehicleOwnerType', e.target.value)
+                    if (e.target.value !== 'client') update('customerTin', '')
+                  }}
                 >
                   <option value="own">Korxona o'z mashinasi (yetkazish narxi: 0 so'm)</option>
                   <option value="client">Mijoz mashinasi (yetkazish narxi: 0 so'm)</option>
                   <option value="third_party">Uchinchi tomon mashinasi (yetkazish narxi: sozlamadan)</option>
                 </select>
               </div>
+              {form.vehicleOwnerType === 'client' && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
+                    Qaysi mijozning mashinasi? (STIR)
+                  </label>
+                  {customers.length > 0 ? (
+                    <select
+                      className={inputCls}
+                      value={form.customerTin ?? ''}
+                      onChange={e => update('customerTin', e.target.value)}
+                    >
+                      <option value="">— Mijozni tanlang —</option>
+                      {customers.map((c: any) => (
+                        <option key={c.tin} value={c.tin}>{c.name} ({c.tin})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className={inputCls + ' font-mono'}
+                      placeholder="Mijoz STIR (9 yoki 14 raqam)"
+                      value={form.customerTin ?? ''}
+                      onChange={e => update('customerTin', e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
                   Transport egasi STIR/PINFL

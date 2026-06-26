@@ -72,9 +72,12 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
     autoSplitDoneRef.current = true
     const activeVehicles = vehicles.filter((v: any) => v.isActive !== false)
     if (activeVehicles.length === 0) return
-    setSelectedVehicles(activeVehicles)
+    // Xaridorning o'z mashinasi bo'lsa — faqat shularni tanlash
+    const buyerVehicles = activeVehicles.filter((v: any) => v.customerTin === invoice.buyerTin)
+    const chosenVehicles = buyerVehicles.length > 0 ? buyerVehicles : activeVehicles.filter((v: any) => !v.customerTin)
+    setSelectedVehicles(chosenVehicles)
     try {
-      const result = await window.api.splitCargo(invoice.quantity, activeVehicles.map((v: any) => v.id))
+      const result = await window.api.splitCargo(invoice.quantity, chosenVehicles.map((v: any) => v.id))
       setAllocations(result.allocations.map((a: any) => ({
         vehicleId: a.vehicle.id,
         quantity: a.quantityAllocated,
@@ -203,26 +206,52 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
           {/* Chap tomon: Mashinalar ro'yxati */}
           <div>
             <h3 className="font-semibold mb-4 text-lg">Faol Mashinalar</h3>
-            <div className="space-y-3">
-              {vehicles.filter((v: any) => v.isActive !== false).map((v: any) => {
-                const isSelected = selectedVehicles.find(sv => sv.id === v.id)
+            {(() => {
+              const activeVehicles = vehicles.filter((v: any) => v.isActive !== false)
+              const buyerVehicles = activeVehicles.filter((v: any) => v.customerTin && v.customerTin === invoice.buyerTin)
+              const ownVehicles = activeVehicles.filter((v: any) => !v.customerTin)
+              const VehicleCheckbox = ({ v, badge }: any) => {
+                const isSelected = selectedVehicles.find((sv: any) => sv.id === v.id)
                 return (
-                  <label key={v.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-secondary/50'}`}>
-                    <input 
-                      type="checkbox" 
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-secondary/50'}`}>
+                    <input
+                      type="checkbox"
                       className="mt-1 w-4 h-4 text-primary rounded focus:ring-primary"
                       checked={!!isSelected}
                       onChange={() => toggleVehicle(v)}
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-foreground">{v.plateNumber}</div>
+                      <div className="font-medium text-foreground flex items-center gap-2">
+                        {v.plateNumber}
+                        {badge && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-normal">{badge}</span>}
+                      </div>
                       <div className="text-xs text-muted-foreground">{v.driverName}</div>
                     </div>
                     <div className="text-sm font-bold text-primary">{v.maxCapacity} t</div>
                   </label>
                 )
-              })}
-            </div>
+              }
+              return (
+                <div className="space-y-4">
+                  {buyerVehicles.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Xaridor mashinasi</p>
+                      <div className="space-y-2">
+                        {buyerVehicles.map((v: any) => <VehicleCheckbox key={v.id} v={v} badge="xaridor" />)}
+                      </div>
+                    </div>
+                  )}
+                  {ownVehicles.length > 0 && (
+                    <div>
+                      {buyerVehicles.length > 0 && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Bizning park</p>}
+                      <div className="space-y-2">
+                        {ownVehicles.map((v: any) => <VehicleCheckbox key={v.id} v={v} />)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* O'ng tomon: Taqsimot va Manzil */}

@@ -105,9 +105,15 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                     <div className="divide-y">
                       {allocs.map((a: any, i: number) => {
                         const v = vehById(a.vehicleId)
+                        const isBuyerVehicle = v?.customerTin && v.customerTin === inv?.buyerTin
                         return (
                           <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2"><Truck size={14} className="text-muted-foreground" /> {v?.plateNumber} <span className="text-xs text-muted-foreground">({a.tripIndex}-reys)</span></span>
+                            <span className="flex items-center gap-2">
+                              <Truck size={14} className="text-muted-foreground" />
+                              {v?.plateNumber}
+                              <span className="text-xs text-muted-foreground">({a.tripIndex}-reys)</span>
+                              {isBuyerVehicle && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">xaridor</span>}
+                            </span>
                             <span className="font-medium text-primary">{a.quantity} t</span>
                           </div>
                         )

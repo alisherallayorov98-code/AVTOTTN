@@ -77,9 +77,13 @@ function bulkAutoDispatch(invoices, fleet) {
   for (const inv of invoices) {
     let invoiceRemaining = parseFloat(inv.quantity) || 0;
 
+    // Xaridorning o'z mashinasi bo'lsa — faqat shulardan foydalanish
+    const buyerVehicles = active.filter(v => v.customerTin && v.customerTin === inv.buyerTin);
+    const eligibleFleet = buyerVehicles.length > 0 ? buyerVehicles : active.filter(v => !v.customerTin);
+
     while (invoiceRemaining > 0.001) {
       // Hali trip limiti to'lmagan mashinalar (maxDailyTrips hisobga olinadi)
-      const available = active.filter(
+      const available = eligibleFleet.filter(
         v => tripCount[v.id] < (parseInt(v.maxDailyTrips) || 2)
       );
 

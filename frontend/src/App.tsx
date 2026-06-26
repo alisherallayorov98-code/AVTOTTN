@@ -572,6 +572,7 @@ function InvoicesView() {
 
 function VehiclesView() {
   const { vehicles, loading, refetch } = useVehicles()
+  const { customers } = useCustomers()
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<any>(null)
   const [showModal, setShowModal] = useState(false)
@@ -606,6 +607,66 @@ function VehiclesView() {
     }
   }
 
+  const ownVehicles = filtered.filter(v => !v.customerTin)
+  const clientVehicles = filtered.filter(v => !!v.customerTin)
+  const clientGroups: { [tin: string]: any[] } = {}
+  for (const v of clientVehicles) {
+    if (!clientGroups[v.customerTin]) clientGroups[v.customerTin] = []
+    clientGroups[v.customerTin].push(v)
+  }
+
+  const VehicleCard = ({ v }: { v: any }) => (
+    <div key={v.id} className="group relative bg-card border rounded-xl p-5 hover:shadow-lg hover:border-primary/50 transition-all duration-300 flex flex-col h-full bg-background">
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 p-2.5 rounded-lg text-primary">
+            <Truck size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg leading-tight">{v.plateNumber}</h3>
+            <p className="text-xs text-muted-foreground">{v.vehicleModel || 'Model kiritilmagan'}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => toggleActive(v)}
+          title={v.isActive !== false ? 'Nofaol qilish' : 'Faol qilish'}
+          className={`w-3 h-3 rounded-full transition-colors hover:ring-2 hover:ring-offset-1 ${v.isActive !== false ? 'bg-emerald-500 hover:ring-emerald-400' : 'bg-destructive hover:ring-destructive/50'}`}
+        />
+      </div>
+
+      <div className="space-y-3 flex-1">
+        <div className="flex items-center gap-2 text-sm">
+          <User size={14} className="text-muted-foreground" />
+          <span className="font-medium">{v.driverName}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Phone size={14} />
+          <span>{v.driverPhone || 'Noma\'lum'}</span>
+        </div>
+
+        <div className="pt-3 mt-3 border-t grid grid-cols-2 gap-2 text-center">
+          <div className="bg-secondary/50 rounded-lg py-2">
+            <div className="text-xs text-muted-foreground mb-0.5">Sig'im</div>
+            <div className="font-bold text-primary">{v.maxCapacity} <span className="text-xs font-normal">t</span></div>
+          </div>
+          <div className="bg-secondary/50 rounded-lg py-2">
+            <div className="text-xs text-muted-foreground mb-0.5">Maks. Reys</div>
+            <div className="font-bold text-foreground">{v.maxDailyTrips || 2} <span className="text-xs font-normal">marta</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+        <button onClick={() => openEdit(v)} className="bg-background/80 backdrop-blur border p-1.5 rounded-md text-muted-foreground hover:text-primary shadow-sm" title="Tahrirlash">
+          <Pencil size={14} />
+        </button>
+        <button onClick={() => handleDelete(v)} className="bg-background/80 backdrop-blur border p-1.5 rounded-md text-muted-foreground hover:text-destructive shadow-sm" title="O'chirish">
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between gap-4">
@@ -630,64 +691,38 @@ function VehiclesView() {
           <p>Mashinalar yo'q. "Mashina qo'shish" tugmasini bosing.</p>
         </div>
       ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filtered.map(v => (
-          <div key={v.id} className="group relative bg-card border rounded-xl p-5 hover:shadow-lg hover:border-primary/50 transition-all duration-300 flex flex-col h-full bg-background">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary/10 p-2.5 rounded-lg text-primary">
-                  <Truck size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg leading-tight">{v.plateNumber}</h3>
-                  <p className="text-xs text-muted-foreground">{v.vehicleModel || 'Model kiritilmagan'}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => toggleActive(v)}
-                title={v.isActive !== false ? 'Nofaol qilish' : 'Faol qilish'}
-                className={`w-3 h-3 rounded-full transition-colors hover:ring-2 hover:ring-offset-1 ${v.isActive !== false ? 'bg-emerald-500 hover:ring-emerald-400' : 'bg-destructive hover:ring-destructive/50'}`}
-              />
-            </div>
-
-            <div className="space-y-3 flex-1">
-              <div className="flex items-center gap-2 text-sm">
-                <User size={14} className="text-muted-foreground" />
-                <span className="font-medium">{v.driverName}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone size={14} />
-                <span>{v.driverPhone || 'Noma\'lum'}</span>
-              </div>
-
-              <div className="pt-3 mt-3 border-t grid grid-cols-2 gap-2 text-center">
-                <div className="bg-secondary/50 rounded-lg py-2">
-                  <div className="text-xs text-muted-foreground mb-0.5">Sig'im</div>
-                  <div className="font-bold text-primary">{v.maxCapacity} <span className="text-xs font-normal">t</span></div>
-                </div>
-                <div className="bg-secondary/50 rounded-lg py-2">
-                  <div className="text-xs text-muted-foreground mb-0.5">Maks. Reys</div>
-                  <div className="font-bold text-foreground">{v.maxDailyTrips || 2} <span className="text-xs font-normal">marta</span></div>
-                </div>
+        <div className="space-y-8">
+          {ownVehicles.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Building2 size={14} /> Bizning park
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {ownVehicles.map(v => <VehicleCard key={v.id} v={v} />)}
               </div>
             </div>
-
-            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-              <button onClick={() => openEdit(v)} className="bg-background/80 backdrop-blur border p-1.5 rounded-md text-muted-foreground hover:text-primary shadow-sm" title="Tahrirlash">
-                <Pencil size={14} />
-              </button>
-              <button onClick={() => handleDelete(v)} className="bg-background/80 backdrop-blur border p-1.5 rounded-md text-muted-foreground hover:text-destructive shadow-sm" title="O'chirish">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          )}
+          {Object.entries(clientGroups).map(([tin, vList]) => {
+            const customer = customers.find((c: any) => c.tin === tin)
+            return (
+              <div key={tin}>
+                <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <Truck size={14} /> {customer?.name || `STIR: ${tin}`}
+                  <span className="text-xs font-normal text-muted-foreground normal-case">(mijoz mashinasi)</span>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {(vList as any[]).map(v => <VehicleCard key={v.id} v={v} />)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {showModal && (
         <VehicleModal
           vehicle={editing}
+          customers={customers}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); refetch() }}
         />
