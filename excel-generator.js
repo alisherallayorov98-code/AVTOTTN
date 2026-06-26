@@ -96,7 +96,9 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       const worksheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
-      templateHeaderRows = rows.slice(0, 4);
+      // Didox 5-qatordan o'qiydi: 3 sarlavha qatori + 1 bo'sh separator qatori kerak
+      templateHeaderRows = rows.slice(0, 3);
+      while (templateHeaderRows.length < 4) templateHeaderRows.push([]);
     } catch (err) {
       console.error('Error reading template workbook. Falling back to default generation:', err);
     }
@@ -126,7 +128,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       'Ед. изм *', 'Кол-vo *', 'Цена *', 'Сумма (без НДС) *', 'Брутto *', 'Нетто *',
       'Общее расстояние *', 'Стоимость доставки за 1 км *', 'Стоимость доставки (в сумах) *'
     ];
-    newDataRows[3] = [];
+    newDataRows[3] = []; // bo'sh separator qatori (Didox 5-qatordan o'qiydi)
   }
 
   const senderTin = settings.senderTin || "305539899";
