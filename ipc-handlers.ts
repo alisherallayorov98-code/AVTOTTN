@@ -74,6 +74,44 @@ async function saveCustomerAddress(tin: any, name: any, addrObj: any) {
   }
 }
 
+async function saveCompanyToDb(comp: any) {
+  if (!comp?.tin) return;
+  try {
+    const db = getDb();
+    const customers = await db.getCustomers();
+    const existing = customers.find((c: any) => String(c.tin) === String(comp.tin));
+    if (existing) {
+      let changed = false;
+      if (!existing.name && comp.name) { existing.name = comp.name; changed = true; }
+      if (comp.address) {
+        if (!existing.addresses) existing.addresses = [];
+        const alreadyHas = existing.addresses.some((a: any) => a.addressText === comp.address);
+        if (!alreadyHas) {
+          existing.addresses.unshift({
+            addressText: comp.address,
+            oblastCode: comp.oblastCode || '1726',
+            rayonCode: comp.rayonCode || '1'
+          });
+          changed = true;
+        }
+      }
+      if (changed) await db.saveCustomer(existing);
+    } else {
+      const customer: any = { tin: String(comp.tin), name: comp.name || '', addresses: [] };
+      if (comp.address) {
+        customer.addresses.push({
+          addressText: comp.address,
+          oblastCode: comp.oblastCode || '1726',
+          rayonCode: comp.rayonCode || '1'
+        });
+      }
+      await db.saveCustomer(customer);
+    }
+  } catch (e) {
+    log.warn('Kompaniyani saqlashda xatolik:', e);
+  }
+}
+
 export function registerIpcHandlers() {
   ipcMain.handle('get-app-version', () => app.getVersion());
 
@@ -180,7 +218,33 @@ export function registerIpcHandlers() {
 
   ipcMain.handle('get-customers', async () => getDb().getCustomers());
 
-  ipcMain.handle('search-company', async (_: any, tin: string) => soliq.searchCompanyByTin(tin));
+  ipcMain.handle('search-company', async (_: any, tin: string) => {
+    const settings = await getDb().getSettings();
+    const result = await soliq.searchCompanyByTin(tin, settings);
+    if (result) await saveCompanyToDb(result);
+    return result;
+  });
+
+  // Bir nechta STIR uchun fon rejimida boyitish (InvoicesView va BulkDispatch uchun)
+  ipcMain.handle('enrich-customers', async (_: any, tins: string[]) => {
+    if (!tins?.length) return [];
+    const db = getDb();
+    const customers = await db.getCustomers();
+    const settings = await db.getSettings();
+    const results: any[] = [];
+    for (const tin of tins) {
+      const existing = customers.find((c: any) => String(c.tin) === String(tin));
+      if (existing?.addresses?.length > 0) continue;
+      try {
+        const result = await soliq.searchCompanyByTin(String(tin), settings);
+        if (result?.name) {
+          await saveCompanyToDb(result);
+          results.push({ tin, name: result.name, address: result.address });
+        }
+      } catch {}
+    }
+    return results;
+  });
 
   ipcMain.handle('get-settings', async () => getDb().getSettings());
   ipcMain.handle('save-settings', async (_: any, settings: any) => getDb().saveSettings(settings));

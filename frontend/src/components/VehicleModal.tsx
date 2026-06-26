@@ -25,7 +25,23 @@ const inputCls = "w-full px-3 py-2 bg-background border rounded-md focus:outline
 export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any) {
   const [form, setForm] = useState<any>({ ...empty, ...(vehicle || {}) })
   const [saving, setSaving] = useState(false)
+  const [tinLookup, setTinLookup] = useState<{ loading: boolean; name: string | null }>({ loading: false, name: null })
   const isEdit = !!vehicle?.id
+
+  const handleCustomerTinBlur = async () => {
+    const tin = String(form.customerTin || '').trim().replace(/\D/g, '')
+    if (!tin || !/^\d{9,14}$/.test(tin)) return
+    // Avval mavjud customers listidan qidirish
+    const found = customers.find((c: any) => String(c.tin) === tin)
+    if (found?.name) { setTinLookup({ loading: false, name: found.name }); return }
+    setTinLookup({ loading: true, name: null })
+    try {
+      const comp = await window.api.searchCompany(tin)
+      setTinLookup({ loading: false, name: comp?.name || null })
+    } catch {
+      setTinLookup({ loading: false, name: null })
+    }
+  }
 
   const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }))
 
@@ -134,7 +150,11 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any)
                     <select
                       className={inputCls}
                       value={form.customerTin ?? ''}
-                      onChange={e => update('customerTin', e.target.value)}
+                      onChange={e => {
+                        update('customerTin', e.target.value)
+                        const found = customers.find((c: any) => c.tin === e.target.value)
+                        setTinLookup({ loading: false, name: found?.name || null })
+                      }}
                     >
                       <option value="">— Mijozni tanlang —</option>
                       {customers.map((c: any) => (
@@ -142,12 +162,20 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any)
                       ))}
                     </select>
                   ) : (
-                    <input
-                      className={inputCls + ' font-mono'}
-                      placeholder="Mijoz STIR (9 yoki 14 raqam)"
-                      value={form.customerTin ?? ''}
-                      onChange={e => update('customerTin', e.target.value)}
-                    />
+                    <div>
+                      <input
+                        className={inputCls + ' font-mono'}
+                        placeholder="Mijoz STIR (9 yoki 14 raqam)"
+                        value={form.customerTin ?? ''}
+                        onChange={e => { update('customerTin', e.target.value); setTinLookup({ loading: false, name: null }) }}
+                        onBlur={handleCustomerTinBlur}
+                      />
+                      {tinLookup.loading && <p className="text-xs text-muted-foreground mt-1 animate-pulse">Qidirilmoqda...</p>}
+                      {tinLookup.name && <p className="text-xs text-emerald-600 mt-1 font-medium">✓ {tinLookup.name}</p>}
+                      {!tinLookup.loading && tinLookup.name === null && form.customerTin?.length >= 9 && (
+                        <p className="text-xs text-muted-foreground mt-1">STIR kiritib, maydondan chiqqanda qidiradi</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

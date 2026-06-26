@@ -5,9 +5,11 @@ import { toast } from './Toast'
 export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onComplete }: any) {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [enriching, setEnriching] = useState(false)
   const [allocations, setAllocations] = useState<any[]>([])
   const [remaining, setRemaining] = useState<any[]>([])
   const [addrOverrides, setAddrOverrides] = useState<{ [id: string]: string }>({})
+  const [fetchedAddrs, setFetchedAddrs] = useState<{ [tin: string]: string }>({})
 
   useEffect(() => {
     (async () => {
@@ -24,6 +26,33 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
     })()
   }, [invoices])
 
+  // Manzilsiz fakturalar uchun Soliq API dan avtomatik olish
+  useEffect(() => {
+    if (loading) return
+    const missingTins = [...new Set(
+      invoices
+        .filter((inv: any) => {
+          const c = customers.find((c: any) => c.tin === inv.buyerTin)
+          return !c?.addresses?.length
+        })
+        .map((inv: any) => inv.buyerTin)
+        .filter(Boolean)
+    )] as string[]
+    if (missingTins.length === 0) return
+
+    setEnriching(true)
+    window.api.enrichCustomers(missingTins)
+      .then((results: any[]) => {
+        const map: { [tin: string]: string } = {}
+        for (const r of results) {
+          if (r.address) map[r.tin] = r.address
+        }
+        if (Object.keys(map).length > 0) setFetchedAddrs(map)
+      })
+      .catch(() => {})
+      .finally(() => setEnriching(false))
+  }, [loading])
+
   const invById = (id: string) => invoices.find((i: any) => i.id === id)
   const vehById = (id: string) => vehicles.find((v: any) => v.id === id)
 
@@ -33,7 +62,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
     return !customer?.addresses?.length
   })
 
-  // Har bir faktura uchun manzil: override → mijoz bazasi → standart
+  // Har bir faktura uchun manzil: qo'lda → mijoz bazasi → Soliq API → standart
   const buildAddresses = () => {
     const map: any = {}
     for (const inv of invoices) {
@@ -42,6 +71,8 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
         map[inv.id] = { addressText: addrOverrides[inv.id].trim(), oblastCode: '1726', rayonCode: '1' }
       } else if (customer?.addresses?.[0]) {
         map[inv.id] = customer.addresses[0]
+      } else if (fetchedAddrs[inv.buyerTin]) {
+        map[inv.id] = { addressText: fetchedAddrs[inv.buyerTin], oblastCode: '1726', rayonCode: '1' }
       } else {
         map[inv.id] = { addressText: 'Manzil ko\'rsatilmagan', oblastCode: '1726', rayonCode: '1' }
       }
@@ -126,20 +157,31 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
               {missingAddressInvoices.length > 0 && (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
-                    <MapPin size={15} /> {missingAddressInvoices.length} ta mijoz manzili topilmadi — quyida kiriting:
+                    <MapPin size={15} />
+                    {enriching
+                      ? <span className="animate-pulse">Soliq API dan manzillar qidirilmoqda...</span>
+                      : `${missingAddressInvoices.length} ta mijoz manzili`}
                   </div>
-                  {missingAddressInvoices.map((inv: any) => (
-                    <div key={inv.id} className="bg-background rounded-lg p-3 border space-y-1.5">
-                      <div className="text-xs font-medium text-foreground">№ {inv.invoiceNumber} · {inv.buyerName}</div>
-                      <input
-                        type="text"
-                        placeholder="Yetkazib berish manzili (ko'cha, uy)..."
-                        className="w-full text-xs px-3 py-2 border rounded-md outline-none focus:ring-1 focus:ring-primary bg-background"
-                        value={addrOverrides[inv.id] || ''}
-                        onChange={e => setAddrOverrides(prev => ({ ...prev, [inv.id]: e.target.value }))}
-                      />
-                    </div>
-                  ))}
+                  {missingAddressInvoices.map((inv: any) => {
+                    const autoAddr = fetchedAddrs[inv.buyerTin]
+                    return (
+                      <div key={inv.id} className="bg-background rounded-lg p-3 border space-y-1.5">
+                        <div className="text-xs font-medium text-foreground">№ {inv.invoiceNumber} · {inv.buyerName} ({inv.buyerTin})</div>
+                        {autoAddr && !addrOverrides[inv.id] && (
+                          <div className="text-xs text-emerald-600 flex items-center gap-1">
+                            ✓ {autoAddr}
+                          </div>
+                        )}
+                        <input
+                          type="text"
+                          placeholder={autoAddr ? `Avtomatik: ${autoAddr}` : "Yetkazib berish manzilini kiriting..."}
+                          className="w-full text-xs px-3 py-2 border rounded-md outline-none focus:ring-1 focus:ring-primary bg-background"
+                          value={addrOverrides[inv.id] || ''}
+                          onChange={e => setAddrOverrides(prev => ({ ...prev, [inv.id]: e.target.value }))}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 

@@ -17,6 +17,7 @@ declare global {
       deleteVehicle: (id: string) => Promise<any>;
       getCustomers: () => Promise<any>;
       searchCompany: (tin: string) => Promise<any>;
+      enrichCustomers: (tins: string[]) => Promise<any[]>;
       getSettings: () => Promise<any>;
       saveSettings: (settings: any) => Promise<any>;
       splitCargo: (totalQty: number, vehicleIds: string[]) => Promise<any>;

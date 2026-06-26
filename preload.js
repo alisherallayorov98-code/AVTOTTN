@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteVehicle: (id) => ipcRenderer.invoke('delete-vehicle', id),
   getCustomers: () => ipcRenderer.invoke('get-customers'),
   searchCompany: (tin) => ipcRenderer.invoke('search-company', tin),
+  enrichCustomers: (tins) => ipcRenderer.invoke('enrich-customers', tins),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   testFirebirdConnection: () => ipcRenderer.invoke('test-firebird-connection'),

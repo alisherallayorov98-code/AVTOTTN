@@ -375,6 +375,22 @@ function InvoicesView() {
   const [showPdfImport, setShowPdfImport] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
 
+  // Fakturalar yuklananda xaridor STIR'larini fon rejimida boyitish
+  useEffect(() => {
+    if (loading || customersLoading || !invoices.length) return
+    const uniqueTins = [...new Set(
+      invoices.map((i: any) => i.buyerTin).filter(Boolean).map(String)
+    )]
+    const missingTins = uniqueTins.filter(tin => {
+      const c = customers.find((c: any) => String(c.tin) === tin)
+      return !c?.addresses?.length
+    })
+    if (missingTins.length === 0) return
+    window.api.enrichCustomers(missingTins)
+      .then(() => refetchCustomers())
+      .catch(() => {})
+  }, [loading, customersLoading])
+
   if (loading) {
     return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
   }

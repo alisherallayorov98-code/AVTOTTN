@@ -20,17 +20,24 @@ export function ManualInvoiceModal({ invoice, onClose, onSaved }: any) {
   const addItem = () => setForm((p: any) => ({ ...p, items: [...p.items, emptyItem()] }))
   const removeItem = (idx: number) => setForm((p: any) => ({ ...p, items: p.items.filter((_: any, i: number) => i !== idx) }))
 
-  const handleSearchTin = async () => {
-    if (!form.buyerTin || form.buyerTin.length !== 9) return toast("STIR 9 ta raqamdan iborat bo'lishi kerak", 'error')
+  const handleSearchTin = async (silent = false) => {
+    const tin = String(form.buyerTin || '').trim().replace(/\D/g, '')
+    if (!tin || !/^\d{9,14}$/.test(tin)) {
+      if (!silent) toast("STIR/PINFL 9 yoki 14 ta raqam bo'lishi kerak", 'error')
+      return
+    }
+    if (form.buyerName?.trim() && silent) return // blur'da: nom allaqachon bor bo'lsa skip
     setSearching(true)
     try {
-      const comp = await window.api.searchCompany(form.buyerTin)
+      const comp = await window.api.searchCompany(tin)
       if (comp?.name) {
         update('buyerName', comp.name)
-        toast(`Topildi: ${comp.name}`, 'success')
+        if (!silent) toast(`Topildi: ${comp.name}`, 'success')
+      } else if (!silent) {
+        toast("Kompaniya topilmadi", 'info')
       }
     } catch (e: any) {
-      toast("Qidirishda xatolik: " + e.message, 'error')
+      if (!silent) toast("Qidirishda xatolik: " + e.message, 'error')
     } finally {
       setSearching(false)
     }
@@ -104,8 +111,8 @@ export function ManualInvoiceModal({ invoice, onClose, onSaved }: any) {
             <div>
               <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Xaridor STIR</label>
               <div className="flex gap-2">
-                <input type="text" value={form.buyerTin} onChange={e => update('buyerTin', e.target.value)} className={inputCls + ' font-mono'} placeholder="9 raqam" />
-                <button onClick={handleSearchTin} disabled={searching} className="px-3 bg-secondary rounded-md hover:bg-secondary/70 transition-colors shrink-0" title="STIR bo'yicha qidirish">
+                <input type="text" value={form.buyerTin} onChange={e => update('buyerTin', e.target.value)} onBlur={() => handleSearchTin(true)} className={inputCls + ' font-mono'} placeholder="9 yoki 14 raqam" />
+                <button onClick={() => handleSearchTin(false)} disabled={searching} className="px-3 bg-secondary rounded-md hover:bg-secondary/70 transition-colors shrink-0" title="STIR bo'yicha qidirish">
                   {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                 </button>
               </div>
