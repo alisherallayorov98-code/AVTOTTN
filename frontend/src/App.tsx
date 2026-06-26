@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers, ChevronDown, CheckCircle2, XCircle, Loader2, Building2 } from 'lucide-react'
+import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers, ChevronDown, CheckCircle2, XCircle, Loader2, Building2, ShieldCheck, RotateCcw, HardDrive } from 'lucide-react'
 import { useInvoices, useVehicles, useSettings, useCustomers } from './hooks/useIpc'
 import { SplitterModal } from './components/SplitterModal'
 import { VehicleModal } from './components/VehicleModal'
@@ -35,6 +35,34 @@ function App() {
   const [creatingProfile, setCreatingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
   const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  const [restoreCandidate, setRestoreCandidate] = useState<any>(null)
+  const [restoring, setRestoring] = useState(false)
+
+  useEffect(() => {
+    window.api.backupCheckRestore?.().then((candidate: any) => {
+      if (candidate) setRestoreCandidate(candidate)
+    }).catch(() => {})
+  }, [])
+
+  const handleRestore = async () => {
+    if (!restoreCandidate) return
+    setRestoring(true)
+    try {
+      const result = await window.api.backupRestore(restoreCandidate.path)
+      if (result.ok) {
+        setRestoreCandidate(null)
+        toast('Ma\'lumotlar tiklandi! Ilova qayta yuklanmoqda...', 'success')
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        toast('Tiklashda xatolik: ' + result.message, 'error')
+      }
+    } catch (e: any) {
+      toast('Xatolik: ' + e.message, 'error')
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   const loadProfiles = async () => {
     try {
@@ -101,6 +129,61 @@ function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Toaster />
+
+      {/* Restore dialog — yangi o'rnatilganda backup topilsa */}
+      {restoreCandidate && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-background border rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-emerald-500/10 p-3 rounded-xl">
+                <ShieldCheck size={28} className="text-emerald-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Backup topildi!</h2>
+                <p className="text-sm text-muted-foreground">D:\1uz arxiv\AvtoETTN</p>
+              </div>
+            </div>
+            <div className="bg-secondary/50 rounded-xl p-4 mb-6 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fayl</span>
+                <span className="font-medium text-xs">{restoreCandidate.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sana</span>
+                <span className="font-medium">{new Date(restoreCandidate.date).toLocaleString('ru-RU')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Kompaniyalar</span>
+                <span className="font-medium">{restoreCandidate.profileCount} ta</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Mashinalar</span>
+                <span className="font-medium">{restoreCandidate.vehicleCount} ta</span>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Avvalgi ma'lumotlaringiz (mashinalar, sozlamalar, mijozlar) tiklanadi. Davom etasizmi?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRestore}
+                disabled={restoring}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50"
+              >
+                {restoring ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+                {restoring ? 'Tiklanmoqda...' : 'Ha, tiklash'}
+              </button>
+              <button
+                onClick={() => setRestoreCandidate(null)}
+                className="px-4 py-2.5 bg-secondary text-secondary-foreground rounded-xl font-medium hover:bg-secondary/80 transition-colors"
+              >
+                Yo'q, yangi boshlayman
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-64 bg-secondary/30 border-r flex flex-col transition-all duration-300">
         <div className="p-5 flex items-center gap-3 border-b">
@@ -888,6 +971,9 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
         </section>
       </div>
 
+      {/* Backup bo'limi */}
+      <BackupSection />
+
       {/* Yagona Saqlash tugmasi */}
       <div className="flex justify-end sticky bottom-0 py-2">
         <button
@@ -899,6 +985,100 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
         </button>
       </div>
     </div>
+  )
+}
+
+function BackupSection() {
+  const [backups, setBackups] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [backing, setBacking] = useState(false)
+  const [restoring, setRestoring] = useState<string | null>(null)
+
+  const loadBackups = async () => {
+    setLoading(true)
+    try {
+      const list = await window.api.backupList()
+      setBackups(list || [])
+    } catch {} finally { setLoading(false) }
+  }
+
+  useEffect(() => { loadBackups() }, [])
+
+  const handleBackup = async () => {
+    setBacking(true)
+    try {
+      const result = await window.api.backupCreate()
+      if (result.ok) { toast('Backup saqlandi ✓', 'success'); loadBackups() }
+      else toast(result.message, 'error')
+    } catch (e: any) { toast('Xatolik: ' + e.message, 'error') }
+    finally { setBacking(false) }
+  }
+
+  const handleRestore = async (b: any) => {
+    if (!confirm(`"${b.name}" dan tiklash — hozirgi ma'lumotlar o'rnini bosadi. Davom etasizmi?`)) return
+    setRestoring(b.path)
+    try {
+      const result = await window.api.backupRestore(b.path)
+      if (result.ok) {
+        toast('Tiklandi! Qayta yuklanmoqda...', 'success')
+        setTimeout(() => window.location.reload(), 1500)
+      } else toast('Xatolik: ' + result.message, 'error')
+    } catch (e: any) { toast('Xatolik: ' + e.message, 'error') }
+    finally { setRestoring(null) }
+  }
+
+  const formatSize = (bytes: number) => bytes < 1024 ? bytes + ' B' : (bytes / 1024).toFixed(1) + ' KB'
+
+  return (
+    <section className="bg-card border rounded-xl overflow-hidden bg-background md:col-span-2">
+      <div className="px-6 py-4 border-b bg-secondary/30 flex items-center justify-between">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <HardDrive size={18} className="text-primary" />
+          Avtomatik Backup (D:\1uz arxiv\AvtoETTN)
+        </h3>
+        <button
+          onClick={handleBackup}
+          disabled={backing}
+          className="flex items-center gap-2 px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {backing ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+          {backing ? 'Saqlanmoqda...' : 'Hozir saqlash'}
+        </button>
+      </div>
+      <div className="p-6">
+        <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 mb-4">
+          Ilova har kuni ishga tushganda va yopilganda avtomatik backup qiladi. So'nggi 30 ta backup saqlanadi.
+          Ilova qayta o'rnatilsa — backup dan bir tugma bilan tiklanadi.
+        </p>
+        {loading ? (
+          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-muted-foreground" /></div>
+        ) : backups.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">Hali backup yo'q. "Hozir saqlash" ni bosing.</p>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+            {backups.map((b, i) => (
+              <div key={b.path} className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${i === 0 ? 'border-emerald-500/40 bg-emerald-500/5' : 'bg-secondary/30 border-transparent'}`}>
+                <div className="flex items-center gap-3">
+                  {i === 0 && <span className="text-[10px] bg-emerald-500 text-white px-1.5 py-0.5 rounded font-medium">OXIRGI</span>}
+                  <div>
+                    <p className="text-sm font-medium">{new Date(b.date).toLocaleString('ru-RU')}</p>
+                    <p className="text-xs text-muted-foreground">{b.profileCount} kompaniya · {b.vehicleCount} mashina · {formatSize(b.size)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRestore(b)}
+                  disabled={restoring === b.path}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-secondary hover:bg-primary hover:text-primary-foreground rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {restoring === b.path ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                  Tiklash
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 

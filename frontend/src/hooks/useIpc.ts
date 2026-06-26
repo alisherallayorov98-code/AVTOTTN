@@ -28,6 +28,10 @@ declare global {
       extractPdfs: (buffer: ArrayBuffer) => Promise<any>;
       parsePdf: (buffer: ArrayBuffer) => Promise<any>;
       parsePdfsFromFolder: () => Promise<any>;
+      backupCreate: () => Promise<any>;
+      backupList: () => Promise<any[]>;
+      backupRestore: (backupPath: string) => Promise<any>;
+      backupCheckRestore: () => Promise<any>;
     };
   }
 }

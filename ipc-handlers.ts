@@ -8,6 +8,7 @@ import * as soliq from './soliq-api';
 import * as splitter from './splitter';
 import * as excelGen from './excel-generator';
 import * as pdfParser from './pdf-parser';
+const backup = require('./backup');
 
 // Fayl nomi uchun xavfsiz qism: yo'lni buzadigan/maxsus belgilarni olib tashlaydi
 function safeFileSegment(value: any): string {
@@ -47,6 +48,21 @@ function saveCustomerAddress(tin: any, name: any, addrObj: any) {
 
 export function registerIpcHandlers() {
   ipcMain.handle('get-app-version', () => app.getVersion());
+
+  // ─── Backup / Restore ────────────────────────────────────────────────────────
+  ipcMain.handle('backup-create', () => backup.createBackup());
+  ipcMain.handle('backup-list', () => backup.listBackups());
+  ipcMain.handle('backup-restore', async (_: any, backupPath: string) => {
+    const result = backup.restoreBackup(backupPath);
+    if (result.ok) {
+      log.info('Backup tiklandi:', backupPath);
+    }
+    return result;
+  });
+  ipcMain.handle('backup-check-restore', () => {
+    if (!backup.isFreshInstall()) return null;
+    return backup.getLatestBackup();
+  });
 
   // ─── Profil boshqaruvi ───────────────────────────────────────────────────────
   ipcMain.handle('get-profiles', () => dbMethods.getProfiles());

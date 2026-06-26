@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { registerIpcHandlers } from './ipc-handlers';
+const backup = require('./backup');
 
 // .env faylni ishga tushishda yuklaymiz (packaged va dev uchun)
 function loadEnv() {
@@ -88,6 +89,14 @@ function createWindow() {
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(e => log.warn('Update check failed:', e?.message));
   }, 3000);
+
+  // Kunlik avtomatik backup (bugun backup qilinmagan bo'lsa)
+  setTimeout(() => {
+    if (!backup.isTodayBackedUp()) {
+      const result = backup.createBackup();
+      if (result.ok) log.info('Kunlik backup saqlandi:', result.path);
+    }
+  }, 10000);
 }
 
 process.on('uncaughtException', (err) => {
@@ -101,6 +110,15 @@ process.on('unhandledRejection', (reason) => {
 app.on('ready', createWindow);
 
 app.on('window-all-closed', function () {
+  // Ilova yopilishidan oldin backup yaratamiz
+  try {
+    const result = backup.createBackup();
+    if (result.ok) log.info('Backup saqlandi:', result.path);
+    else log.info('Backup o\'tkazib yuborildi:', result.message);
+  } catch (e: any) {
+    log.warn('Backup xatolik:', e?.message);
+  }
+
   if (process.platform !== 'darwin') {
     app.quit();
   }

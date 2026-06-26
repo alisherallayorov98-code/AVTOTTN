@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  // Backup / Restore
+  backupCreate: () => ipcRenderer.invoke('backup-create'),
+  backupList: () => ipcRenderer.invoke('backup-list'),
+  backupRestore: (backupPath) => ipcRenderer.invoke('backup-restore', backupPath),
+  backupCheckRestore: () => ipcRenderer.invoke('backup-check-restore'),
+
   // Profil boshqaruvi
   getProfiles: () => ipcRenderer.invoke('get-profiles'),
   createProfile: (name) => ipcRenderer.invoke('create-profile', name),
