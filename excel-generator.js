@@ -139,6 +139,13 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
   const unitCodes = settings.unitCodes || { tonna: 1629438 };                // Birlik nomi -> Didox kodi
   const DEFAULT_UNIT_CODE = 1629438; // tonna
 
+  // PINFL (14 xonali) ni Excel da tekst formatda saqlash
+  const pinflCell = (val) => {
+    const str = String(val || '').trim();
+    if (!str || str === '0') return '';
+    return { t: 's', v: str };
+  };
+
   // Tovar birligi nomidan Didox birlik kodini aniqlash
   const resolveUnitCode = (item) => {
     if (item.unitCode) return Number(item.unitCode);
@@ -221,8 +228,8 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[27] = v.trailerModel || ''; // Модель полуприцепа
       row[28] = ''; // Гос. Номер прицепа
       row[29] = ''; // Модель прицепа
-      row[30] = Number(v.driverPinfl) || ''; // Водитель, ПИНФЛ *
-      row[31] = Number(v.driverPinfl) || ''; // Ответственное лицо, доставляющий груз, ПИНФЛ *
+      row[30] = pinflCell(v.driverPinfl); // Водитель, ПИНФЛ *
+      row[31] = pinflCell(v.driverPinfl); // Ответственное лицо, доставляющий груз, ПИНФЛ *
       row[32] = invoiceAllocIndex[invKey]; // п.п Груза * (TTN tartib raqami)
       
       // Ortish manzili (Loading)
@@ -232,7 +239,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[36] = ''; // Широта
       row[37] = ''; //  Долгота
       
-      row[38] = Number(settings.senderResponsiblePinfl) || ''; // Ответственное лицо грузоотправителя, ПИНФЛ
+      row[38] = pinflCell(settings.senderResponsiblePinfl); // Ответственное лицо грузоотправителя, ПИНФЛ
       
       // Tushirish manzili (Delivery)
       row[39] = Number(unloadingAddr.oblastCode) || 1726; // Область * (Yuk tushirish)
@@ -242,7 +249,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[43] = ''; // Долгота
       
       // Qabul qiluvchi mas'ul = haydovchi PINFL (yetkazib berishda haydovchi mas'ul)
-      row[44] = Number(v.driverPinfl) || ''; // Ответственное лицо грузополучателя, ПИНФЛ
+      row[44] = pinflCell(v.driverPinfl); // Ответственное лицо грузополучателя, ПИНФЛ
       row[45] = ''; // Номер доверенности
       row[46] = ''; // От
       row[47] = ''; // До
