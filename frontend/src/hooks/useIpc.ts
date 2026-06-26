@@ -32,6 +32,13 @@ declare global {
       backupList: () => Promise<any[]>;
       backupRestore: (backupPath: string) => Promise<any>;
       backupCheckRestore: () => Promise<any>;
+      networkGetConfig: () => Promise<any>;
+      networkSaveConfig: (cfg: any) => Promise<any>;
+      networkGetIps: () => Promise<{ name: string; ip: string }[]>;
+      networkServerStart: (port?: number) => Promise<any>;
+      networkServerStop: () => Promise<any>;
+      networkServerStatus: () => Promise<any>;
+      networkTestConnection: (ip: string, port?: number) => Promise<any>;
     };
   }
 }

@@ -5,6 +5,8 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { registerIpcHandlers } from './ipc-handlers';
 const backup = require('./backup');
+const localServer = require('./local-server');
+const netConfig = require('./network-config');
 
 // .env faylni ishga tushishda yuklaymiz (packaged va dev uchun)
 function loadEnv() {
@@ -97,6 +99,16 @@ function createWindow() {
       if (result.ok) log.info('Kunlik backup saqlandi:', result.path);
     }
   }, 10000);
+
+  // Server rejimi bo'lsa — express server avtomatik ishga tushadi
+  setTimeout(() => {
+    const cfg = netConfig.get();
+    if (cfg.networkMode === 'server') {
+      localServer.startServer(cfg.serverPort || 3737)
+        .then((res: any) => log.info('Tarmoq server ishga tushdi:', res))
+        .catch((err: any) => log.warn('Tarmoq server xatolik:', err?.message));
+    }
+  }, 2000);
 }
 
 process.on('uncaughtException', (err) => {

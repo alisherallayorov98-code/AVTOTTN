@@ -971,6 +971,9 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
         </section>
       </div>
 
+      {/* Tarmoq bo'limi */}
+      <NetworkSection />
+
       {/* Backup bo'limi */}
       <BackupSection />
 
@@ -985,6 +988,176 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
         </button>
       </div>
     </div>
+  )
+}
+
+function NetworkSection() {
+  const [cfg, setCfg] = useState<any>({ networkMode: 'local', serverIp: '', serverPort: 3737 })
+  const [ips, setIps] = useState<{ name: string; ip: string }[]>([])
+  const [serverStatus, setServerStatus] = useState<any>({ running: false })
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message?: string; version?: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const load = async () => {
+    try {
+      const [config, ipList, status] = await Promise.all([
+        window.api.networkGetConfig(),
+        window.api.networkGetIps(),
+        window.api.networkServerStatus(),
+      ])
+      setCfg(config)
+      setIps(ipList || [])
+      setServerStatus(status)
+    } catch {}
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await window.api.networkSaveConfig(cfg)
+      toast('Tarmoq sozlamalari saqlandi ✓', 'success')
+      await load()
+    } catch (e: any) { toast('Xatolik: ' + e.message, 'error') }
+    finally { setSaving(false) }
+  }
+
+  const handleServerToggle = async () => {
+    try {
+      if (serverStatus.running) {
+        await window.api.networkServerStop()
+        toast('Server to\'xtatildi', 'info')
+      } else {
+        const res = await window.api.networkServerStart(cfg.serverPort || 3737)
+        if (res.ok) toast(`Server ishga tushdi — port ${cfg.serverPort || 3737}`, 'success')
+        else toast('Server ishlamadi', 'error')
+      }
+      await load()
+    } catch (e: any) { toast('Xatolik: ' + e.message, 'error') }
+  }
+
+  const handleTest = async () => {
+    if (!cfg.serverIp) return
+    setTesting(true); setTestResult(null)
+    try {
+      const res = await window.api.networkTestConnection(cfg.serverIp, cfg.serverPort || 3737)
+      setTestResult(res)
+    } catch (e: any) { setTestResult({ ok: false, message: e.message }) }
+    finally { setTesting(false) }
+  }
+
+  const inputCls = "w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+  const modeBtn = (mode: string, label: string, desc: string) => (
+    <button
+      onClick={() => { setCfg((p: any) => ({ ...p, networkMode: mode })); setTestResult(null) }}
+      className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${cfg.networkMode === mode ? 'border-primary bg-primary/5' : 'border-transparent bg-secondary/30 hover:bg-secondary/60'}`}
+    >
+      <div className={`text-sm font-semibold ${cfg.networkMode === mode ? 'text-primary' : ''}`}>{label}</div>
+      <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
+    </button>
+  )
+
+  return (
+    <section className="bg-card border rounded-xl overflow-hidden bg-background md:col-span-2">
+      <div className="px-6 py-4 border-b bg-secondary/30 flex items-center gap-2">
+        <HardDrive size={18} className="text-primary" />
+        <h3 className="font-semibold text-lg">Tarmoq rejimi (Ko'p kompyuter)</h3>
+      </div>
+      <div className="p-6 space-y-5">
+        <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2">
+          Bir xonada bir nechta kompyuter bitta bazadan foydalanishi uchun. Bitta kompyuterni <b>Server</b>, qolganlarini <b>Mijoz</b> rejimiga qo'ying.
+        </p>
+
+        {/* Rejim tanlash */}
+        <div className="flex gap-3">
+          {modeBtn('local', '🖥 Lokal', 'Faqat shu kompyuter (standart)')}
+          {modeBtn('server', '📡 Server', 'Baza shu yerda, boshqalar ulanadi')}
+          {modeBtn('client', '🔗 Mijoz', 'Serverga ulanib ishlaydi')}
+        </div>
+
+        {/* Server rejimi */}
+        {cfg.networkMode === 'server' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Server port</label>
+                <input type="number" value={cfg.serverPort || 3737}
+                  onChange={e => setCfg((p: any) => ({ ...p, serverPort: parseInt(e.target.value) || 3737 }))}
+                  className={inputCls} />
+              </div>
+              <button
+                onClick={handleServerToggle}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${serverStatus.running ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'}`}
+              >
+                {serverStatus.running ? '⏹ Serverni to\'xtatish' : '▶ Serverni ishga tushirish'}
+              </button>
+            </div>
+
+            {serverStatus.running && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+                <p className="text-sm font-semibold text-emerald-600 mb-2">✅ Server ishlayapti — boshqa kompyuterlar quyidagi IP ni kiriting:</p>
+                <div className="space-y-1">
+                  {ips.map(i => (
+                    <div key={i.ip} className="flex items-center gap-3">
+                      <code className="text-base font-bold text-primary bg-primary/10 px-3 py-1 rounded-lg">{i.ip}</code>
+                      <span className="text-xs text-muted-foreground">({i.name})</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Port: <b>{serverStatus.port}</b> · Windows Firewall port {serverStatus.port} ni ruxsat etishi kerak</p>
+              </div>
+            )}
+
+            {!serverStatus.running && ips.length > 0 && (
+              <div className="bg-secondary/50 rounded-xl p-3">
+                <p className="text-xs text-muted-foreground mb-1">Sizning IP manzillaringiz:</p>
+                {ips.map(i => <div key={i.ip} className="text-sm font-mono text-foreground">{i.ip} <span className="text-xs text-muted-foreground">({i.name})</span></div>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mijoz rejimi */}
+        {cfg.networkMode === 'client' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 items-end">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Server IP manzili</label>
+                <input type="text" placeholder="192.168.1.100" value={cfg.serverIp || ''}
+                  onChange={e => { setCfg((p: any) => ({ ...p, serverIp: e.target.value })); setTestResult(null) }}
+                  className={inputCls + ' font-mono'} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Port</label>
+                <input type="number" value={cfg.serverPort || 3737}
+                  onChange={e => setCfg((p: any) => ({ ...p, serverPort: parseInt(e.target.value) || 3737 }))}
+                  className={inputCls} />
+              </div>
+            </div>
+            <button onClick={handleTest} disabled={testing || !cfg.serverIp}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary text-sm font-medium rounded-lg hover:bg-secondary/80 disabled:opacity-50">
+              {testing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              Ulanishni tekshirish
+            </button>
+            {testResult && (
+              <div className={`flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl ${testResult.ok ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
+                {testResult.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                {testResult.ok ? `✅ Ulandi! Server v${testResult.version}` : `❌ Ulanmadi: ${testResult.message}`}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button onClick={handleSave} disabled={saving}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
+            {saving ? 'Saqlanmoqda...' : 'Tarmoq sozlamalarini saqlash'}
+          </button>
+        </div>
+      </div>
+    </section>
   )
 }
 

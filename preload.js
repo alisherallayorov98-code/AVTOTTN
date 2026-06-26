@@ -17,6 +17,15 @@ contextBridge.exposeInMainWorld('api', {
   backupRestore: (backupPath) => ipcRenderer.invoke('backup-restore', backupPath),
   backupCheckRestore: () => ipcRenderer.invoke('backup-check-restore'),
 
+  // Tarmoq (Network)
+  networkGetConfig: () => ipcRenderer.invoke('network-get-config'),
+  networkSaveConfig: (cfg) => ipcRenderer.invoke('network-save-config', cfg),
+  networkGetIps: () => ipcRenderer.invoke('network-get-ips'),
+  networkServerStart: (port) => ipcRenderer.invoke('network-server-start', port),
+  networkServerStop: () => ipcRenderer.invoke('network-server-stop'),
+  networkServerStatus: () => ipcRenderer.invoke('network-server-status'),
+  networkTestConnection: (ip, port) => ipcRenderer.invoke('network-test-connection', ip, port),
+
   // Profil boshqaruvi
   getProfiles: () => ipcRenderer.invoke('get-profiles'),
   createProfile: (name) => ipcRenderer.invoke('create-profile', name),

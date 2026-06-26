@@ -4,7 +4,7 @@
   "description": "1Uz buxgalteriya dasturidan ETTN yaratish va Excelga split qilish",
   "main": "dist/electron-main.js",
   "scripts": {
-    "copy-js": "powershell -Command \"Copy-Item db.js dist\\db.js -Force; Copy-Item 1uz-db.js dist\\1uz-db.js -Force; Copy-Item soliq-api.js dist\\soliq-api.js -Force; Copy-Item splitter.js dist\\splitter.js -Force; Copy-Item excel-generator.js dist\\excel-generator.js -Force; Copy-Item pdf-parser.js dist\\pdf-parser.js -Force; Copy-Item backup.js dist\\backup.js -Force\"",
+    "copy-js": "powershell -Command \"Copy-Item db.js dist\\db.js -Force; Copy-Item 1uz-db.js dist\\1uz-db.js -Force; Copy-Item soliq-api.js dist\\soliq-api.js -Force; Copy-Item splitter.js dist\\splitter.js -Force; Copy-Item excel-generator.js dist\\excel-generator.js -Force; Copy-Item pdf-parser.js dist\\pdf-parser.js -Force; Copy-Item backup.js dist\\backup.js -Force; Copy-Item local-server.js dist\\local-server.js -Force; Copy-Item remote-db.js dist\\remote-db.js -Force; Copy-Item network-config.js dist\\network-config.js -Force\"",
     "start": "npx tsc && npm run copy-js && npx electron .",
     "build": "npx tsc && npm run copy-js && electron-builder build --win"
   },
