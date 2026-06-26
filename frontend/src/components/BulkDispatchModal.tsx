@@ -56,23 +56,24 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
   const invById = (id: string) => invoices.find((i: any) => i.id === id)
   const vehById = (id: string) => vehicles.find((v: any) => v.id === id)
 
-  // Manzilsiz fakturalar
+  // Manzilsiz fakturalar (Soliq API dan avtomatik kelganlarni ham hisobga olamiz)
   const missingAddressInvoices = invoices.filter((inv: any) => {
-    const customer = customers.find((c: any) => c.tin === inv.buyerTin)
-    return !customer?.addresses?.length
+    const customer = customers.find((c: any) => String(c.tin) === String(inv.buyerTin))
+    return !customer?.addresses?.length && !fetchedAddrs[String(inv.buyerTin)]
   })
 
   // Har bir faktura uchun manzil: qo'lda → mijoz bazasi → Soliq API → standart
   const buildAddresses = () => {
     const map: any = {}
     for (const inv of invoices) {
-      const customer = customers.find((c: any) => c.tin === inv.buyerTin)
+      const buyerTinStr = String(inv.buyerTin)
+      const customer = customers.find((c: any) => String(c.tin) === buyerTinStr)
       if (addrOverrides[inv.id]?.trim()) {
         map[inv.id] = { addressText: addrOverrides[inv.id].trim(), oblastCode: '1726', rayonCode: '1' }
       } else if (customer?.addresses?.[0]) {
         map[inv.id] = customer.addresses[0]
-      } else if (fetchedAddrs[inv.buyerTin]) {
-        map[inv.id] = { addressText: fetchedAddrs[inv.buyerTin], oblastCode: '1726', rayonCode: '1' }
+      } else if (fetchedAddrs[buyerTinStr]) {
+        map[inv.id] = { addressText: fetchedAddrs[buyerTinStr], oblastCode: '1726', rayonCode: '1' }
       } else {
         map[inv.id] = { addressText: 'Manzil ko\'rsatilmagan', oblastCode: '1726', rayonCode: '1' }
       }
@@ -136,7 +137,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                     <div className="divide-y">
                       {allocs.map((a: any, i: number) => {
                         const v = vehById(a.vehicleId)
-                        const isBuyerVehicle = v?.customerTin && v.customerTin === inv?.buyerTin
+                        const isBuyerVehicle = v?.customerTin && String(v.customerTin) === String(inv?.buyerTin)
                         return (
                           <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
                             <span className="flex items-center gap-2">

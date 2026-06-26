@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   getCustomers: () => ipcRenderer.invoke('get-customers'),
   searchCompany: (tin) => ipcRenderer.invoke('search-company', tin),
   enrichCustomers: (tins) => ipcRenderer.invoke('enrich-customers', tins),
+  soliqTestApi: (tin) => ipcRenderer.invoke('soliq-test-api', tin),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   testFirebirdConnection: () => ipcRenderer.invoke('test-firebird-connection'),

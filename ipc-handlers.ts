@@ -229,14 +229,15 @@ export function registerIpcHandlers() {
   ipcMain.handle('enrich-customers', async (_: any, tins: string[]) => {
     if (!tins?.length) return [];
     const db = getDb();
-    const customers = await db.getCustomers();
-    const settings = await db.getSettings();
+    const [customers, settings] = await Promise.all([db.getCustomers(), db.getSettings()]);
+    const existingTins = new Set(
+      customers.filter((c: any) => c.addresses?.length > 0).map((c: any) => String(c.tin))
+    );
+    const uniqueTins = [...new Set((tins as string[]).map(String))].filter(t => !existingTins.has(t));
     const results: any[] = [];
-    for (const tin of tins) {
-      const existing = customers.find((c: any) => String(c.tin) === String(tin));
-      if (existing?.addresses?.length > 0) continue;
+    for (const tin of uniqueTins) {
       try {
-        const result = await soliq.searchCompanyByTin(String(tin), settings);
+        const result = await soliq.searchCompanyByTin(tin, settings);
         if (result?.name) {
           await saveCompanyToDb(result);
           results.push({ tin, name: result.name, address: result.address });
@@ -244,6 +245,12 @@ export function registerIpcHandlers() {
       } catch {}
     }
     return results;
+  });
+
+  // Soliq API ni sinash — to'liq raw javobni qaytaradi
+  ipcMain.handle('soliq-test-api', async (_: any, tin: string) => {
+    const settings = await getDb().getSettings();
+    return soliq.testConnection(tin, settings);
   });
 
   ipcMain.handle('get-settings', async () => getDb().getSettings());

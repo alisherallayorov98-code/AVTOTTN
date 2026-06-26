@@ -37,9 +37,9 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any)
     setTinLookup({ loading: true, name: null })
     try {
       const comp = await window.api.searchCompany(tin)
-      setTinLookup({ loading: false, name: comp?.name || null })
+      setTinLookup({ loading: false, name: comp?.name || '' }) // '' = topilmadi
     } catch {
-      setTinLookup({ loading: false, name: null })
+      setTinLookup({ loading: false, name: '' })
     }
   }
 
@@ -171,9 +171,10 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any)
                         onBlur={handleCustomerTinBlur}
                       />
                       {tinLookup.loading && <p className="text-xs text-muted-foreground mt-1 animate-pulse">Qidirilmoqda...</p>}
-                      {tinLookup.name && <p className="text-xs text-emerald-600 mt-1 font-medium">✓ {tinLookup.name}</p>}
-                      {!tinLookup.loading && tinLookup.name === null && form.customerTin?.length >= 9 && (
-                        <p className="text-xs text-muted-foreground mt-1">STIR kiritib, maydondan chiqqanda qidiradi</p>
+                      {!tinLookup.loading && tinLookup.name && <p className="text-xs text-emerald-600 mt-1 font-medium">✓ {tinLookup.name}</p>}
+                      {!tinLookup.loading && tinLookup.name === '' && <p className="text-xs text-amber-500 mt-1">Kompaniya topilmadi</p>}
+                      {!tinLookup.loading && tinLookup.name === null && !form.customerTin && (
+                        <p className="text-xs text-muted-foreground mt-1">STIR kiritib, maydondan chiqqanda avtomatik qidiradi</p>
                       )}
                     </div>
                   )}

@@ -146,6 +146,14 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
     return { t: 's', v: str };
   };
 
+  // STIR (9 raqam) → raqam; PINFL (14 raqam) → tekst (scientific notation oldini olish)
+  const tinCell = (val) => {
+    const str = String(val || '').trim().replace(/\D/g, '');
+    if (!str || str === '0') return '';
+    if (str.length > 9) return { t: 's', v: str }; // PINFL — tekst
+    return Number(str) || '';                        // STIR — raqam
+  };
+
   // Tovar birligi nomidan Didox birlik kodini aniqlash
   const resolveUnitCode = (item) => {
     if (item.unitCode) return Number(item.unitCode);
@@ -202,19 +210,19 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[3] = formatDate(inv.invoiceDate); // Дата ТТН *
       row[4] = inv.contractNumber || ''; // Номер контракта *
       row[5] = formatDate(inv.contractDate); // Дата контракта  *
-      row[6] = Number(senderTin) || ''; // ИНН/ПИНФЛ Грузоотправителя *
+      row[6] = tinCell(senderTin); // ИНН/ПИНФЛ Грузоотправителя *
       row[7] = ''; // Код филиала (gruzootpravitel)
-      row[8] = Number(inv.buyerTin) || ''; // ИНН/ПИНФЛ  Гruzoполучателя *
+      row[8] = tinCell(inv.buyerTin); // ИНН/ПИНФЛ  Гruzoполучателя *
       row[9] = ''; // Код филиала (gruzopoluchatel)
-      row[10] = Number(expeditorTin) || Number(inv.buyerTin) || ''; // ИНН/ПИНФЛ Экспедитора * (Sozlamalardan: bo'sh -> jo'natuvchi)
+      row[10] = tinCell(expeditorTin) || tinCell(inv.buyerTin) || ''; // ИНН/ПИНФЛ Экспедитора *
       row[11] = ''; // Код филиала (ekspeditor)
-      row[12] = Number(v.carrierTin) || Number(senderTin) || ''; // ИНН/ПИНФЛ Грузоперевозчика *
+      row[12] = tinCell(v.carrierTin) || tinCell(senderTin) || ''; // ИНН/ПИНФЛ Грузоперевозчика *
       row[13] = ''; // Код филиала (gruzoperevozchik)
       row[14] = ''; // ИНН/ПИНФЛ/ПИНФЛ Клиента
       row[15] = ''; // Код филиала
       row[16] = ''; // Номер контракта
       row[17] = ''; // Дата контракта
-      row[18] = Number(inv.buyerTin) || ''; // ИНН/ПИНФЛ Заказчика *
+      row[18] = tinCell(inv.buyerTin); // ИНН/ПИНФЛ Заказчика *
       row[19] = ''; // Код филиала
       row[20] = ''; // Номер контракта
       row[21] = ''; // Дата контракта
@@ -223,7 +231,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
       row[24] = v.vehicleModel || 'SHACMAN'; // Модель авто. *
       // Transport egasi: har mashina uchun → sozlamadagi → jo'natuvchi STIR
       const vehicleTransportOwnerTin = v.transportOwnerTin || settings.transportOwnerTin || senderTin;
-      row[25] = Number(vehicleTransportOwnerTin) || ''; // Транспорт принадлежит, ИНН/ПИНФЛ
+      row[25] = tinCell(vehicleTransportOwnerTin); // Транспорт принадлежит, ИНН/ПИНФЛ
       row[26] = v.trailerPlate || ''; // Гос. Номер полуприцепа
       row[27] = v.trailerModel || ''; // Модель полуприцепа
       row[28] = ''; // Гос. Номер прицепа

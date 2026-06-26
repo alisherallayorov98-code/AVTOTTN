@@ -375,9 +375,11 @@ function InvoicesView() {
   const [showPdfImport, setShowPdfImport] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
 
-  // Fakturalar yuklananda xaridor STIR'larini fon rejimida boyitish
+  // Fakturalar yuklananda xaridor STIR'larini fon rejimida bir marta boyitish
+  const enrichDoneRef = useRef(false)
   useEffect(() => {
-    if (loading || customersLoading || !invoices.length) return
+    if (loading || customersLoading || !invoices.length || enrichDoneRef.current) return
+    enrichDoneRef.current = true
     const uniqueTins = [...new Set(
       invoices.map((i: any) => i.buyerTin).filter(Boolean).map(String)
     )]
@@ -387,7 +389,7 @@ function InvoicesView() {
     })
     if (missingTins.length === 0) return
     window.api.enrichCustomers(missingTins)
-      .then(() => refetchCustomers())
+      .then((results: any[]) => { if (results.length > 0) refetchCustomers() })
       .catch(() => {})
   }, [loading, customersLoading])
 
@@ -757,6 +759,9 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
   const [renamingProfile, setRenamingProfile] = useState(false)
   const [profileName, setProfileName] = useState('')
   const [showSoliqApi, setShowSoliqApi] = useState(false)
+  const [soliqTesting, setSoliqTesting] = useState(false)
+  const [soliqTestResult, setSoliqTestResult] = useState<any>(null)
+  const [soliqTestTin, setSoliqTestTin] = useState('')
 
   useEffect(() => {
     if (!loading) {
@@ -967,6 +972,68 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
               <div>
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">API Kalit (Token)</label>
                 <input type="password" value={form.soliqApiKey || ''} onChange={e => update('soliqApiKey', e.target.value)} className={inputCls + ' font-mono'} />
+              </div>
+              {/* API Sinash */}
+              <div className="border-t pt-4 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">API Ulanishni Sinash</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="STIR kiriting (9 raqam)"
+                    value={soliqTestTin}
+                    onChange={e => setSoliqTestTin(e.target.value.replace(/\D/g, ''))}
+                    maxLength={14}
+                    className={inputCls + ' font-mono flex-1'}
+                  />
+                  <button
+                    type="button"
+                    disabled={soliqTesting || !soliqTestTin || soliqTestTin.length < 9}
+                    onClick={async () => {
+                      setSoliqTesting(true)
+                      setSoliqTestResult(null)
+                      try {
+                        const res = await window.api.soliqTestApi(soliqTestTin)
+                        setSoliqTestResult(res)
+                      } catch (e: any) {
+                        setSoliqTestResult({ ok: false, error: e.message })
+                      } finally {
+                        setSoliqTesting(false)
+                      }
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
+                  >
+                    {soliqTesting ? 'Sinash...' : 'Sinash'}
+                  </button>
+                </div>
+                {soliqTestResult && (
+                  <div className={`rounded-lg p-3 text-xs font-mono space-y-1 ${soliqTestResult.ok ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`font-bold ${soliqTestResult.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {soliqTestResult.ok ? '✓ Ulanish muvaffaqiyatli' : '✗ Xatolik'}
+                      </span>
+                      {soliqTestResult.status && <span className="text-muted-foreground">HTTP {soliqTestResult.status}</span>}
+                    </div>
+                    {soliqTestResult.url && <div className="text-muted-foreground break-all">URL: {soliqTestResult.url}</div>}
+                    {soliqTestResult.parsed && (
+                      <div className="mt-2 space-y-0.5">
+                        {soliqTestResult.parsed.name && <div className="text-foreground">Nomi: <span className="font-semibold">{soliqTestResult.parsed.name}</span></div>}
+                        {soliqTestResult.parsed.address && <div className="text-foreground">Manzil: <span className="font-semibold">{soliqTestResult.parsed.address}</span></div>}
+                        {!soliqTestResult.parsed.name && !soliqTestResult.parsed.address && (
+                          <div className="text-amber-600">Kompaniya ma'lumotlari topilmadi (javob kelyapti lekin nom/manzil yo'q)</div>
+                        )}
+                      </div>
+                    )}
+                    {soliqTestResult.rawText && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Xom javob (debug)</summary>
+                        <pre className="mt-1 text-xs overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground max-h-32 overflow-y-auto">
+                          {soliqTestResult.rawText.slice(0, 2000)}
+                        </pre>
+                      </details>
+                    )}
+                    {soliqTestResult.error && <div className="text-red-600">{soliqTestResult.error}</div>}
+                  </div>
+                )}
               </div>
             </div>
           )}

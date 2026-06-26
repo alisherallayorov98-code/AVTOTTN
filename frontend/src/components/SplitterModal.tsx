@@ -17,19 +17,25 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
   const [newAddrOblast, setNewAddrOblast] = useState('1726')
   const [newAddrRayon, setNewAddrRayon] = useState('11')
 
+  // Manzil bir marta o'rnatilgandan keyin customers yangilansa qayta tiklanmasin
+  const addrInitRef = useRef(false)
+
   useEffect(() => {
-    // Mijozlar yuklanguncha kutamiz — aks holda har doim Soliq API chaqiriladi
+    // Mijozlar yuklanguncha kutamiz
     if (customersLoading) return
-    const customer = customers.find((c: any) => c.tin === invoice.buyerTin)
+    // Allaqachon o'rnatilgan bo'lsa — customers yangilanishida reset qilmaymiz
+    if (addrInitRef.current) return
+
+    const customer = customers.find((c: any) => c.tin === String(invoice.buyerTin))
 
     if (customer?.addresses?.length > 0) {
+      addrInitRef.current = true
       setAddresses(customer.addresses)
       setAddressObj(customer.addresses[0])
-      // Manzil topildi — darhol auto-split
       setTimeout(() => triggerAutoSplit(), 0)
     } else {
-      // Mijoz topilmadi — Soliq API dan avtomatik olamiz
-      const defAddr = { addressText: "Yuklanmoqda...", oblastCode: "1726", rayonCode: "1" }
+      // Soliq API dan avtomatik olamiz
+      const defAddr = { addressText: "Qidirilmoqda...", oblastCode: "1726", rayonCode: "1" }
       setAddresses([defAddr])
       setAddressObj(defAddr)
 
@@ -37,6 +43,7 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
         setSearching(true)
         window.api.searchCompany(String(invoice.buyerTin))
           .then((comp: any) => {
+            addrInitRef.current = true
             if (comp?.address) {
               const fetched = {
                 addressText: comp.address,
@@ -45,14 +52,20 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
               }
               setAddresses([fetched])
               setAddressObj(fetched)
+            } else if (comp?.name) {
+              // Kompaniya topildi lekin manzil yo'q
+              const noAddr = { addressText: `${comp.name} — manzil ko'rsatilmagan`, oblastCode: "1726", rayonCode: "1" }
+              setAddresses([noAddr])
+              setAddressObj(noAddr)
             } else {
-              const fallback = { addressText: "Manzil ko'rsatilmagan", oblastCode: "1726", rayonCode: "1" }
+              const fallback = { addressText: "Manzil topilmadi (qo'lda kiriting)", oblastCode: "1726", rayonCode: "1" }
               setAddresses([fallback])
               setAddressObj(fallback)
             }
           })
           .catch(() => {
-            const fallback = { addressText: "Manzil topilmadi", oblastCode: "1726", rayonCode: "1" }
+            addrInitRef.current = true
+            const fallback = { addressText: "API ulanmadi (qo'lda kiriting)", oblastCode: "1726", rayonCode: "1" }
             setAddresses([fallback])
             setAddressObj(fallback)
           })
@@ -61,6 +74,7 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
             triggerAutoSplit()
           })
       } else {
+        addrInitRef.current = true
         triggerAutoSplit()
       }
     }
@@ -73,7 +87,7 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
     const activeVehicles = vehicles.filter((v: any) => v.isActive !== false)
     if (activeVehicles.length === 0) return
     // Xaridorning o'z mashinasi bo'lsa — faqat shularni tanlash
-    const buyerVehicles = activeVehicles.filter((v: any) => v.customerTin === invoice.buyerTin)
+    const buyerVehicles = activeVehicles.filter((v: any) => v.customerTin && String(v.customerTin) === String(invoice.buyerTin))
     const chosenVehicles = buyerVehicles.length > 0 ? buyerVehicles : activeVehicles.filter((v: any) => !v.customerTin)
     setSelectedVehicles(chosenVehicles)
     try {
@@ -208,7 +222,7 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
             <h3 className="font-semibold mb-4 text-lg">Faol Mashinalar</h3>
             {(() => {
               const activeVehicles = vehicles.filter((v: any) => v.isActive !== false)
-              const buyerVehicles = activeVehicles.filter((v: any) => v.customerTin && v.customerTin === invoice.buyerTin)
+              const buyerVehicles = activeVehicles.filter((v: any) => v.customerTin && String(v.customerTin) === String(invoice.buyerTin))
               const ownVehicles = activeVehicles.filter((v: any) => !v.customerTin)
               const VehicleCheckbox = ({ v, badge }: any) => {
                 const isSelected = selectedVehicles.find((sv: any) => sv.id === v.id)

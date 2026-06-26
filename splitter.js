@@ -78,7 +78,7 @@ function bulkAutoDispatch(invoices, fleet) {
     let invoiceRemaining = parseFloat(inv.quantity) || 0;
 
     // Xaridorning o'z mashinasi bo'lsa — faqat shulardan foydalanish
-    const buyerVehicles = active.filter(v => v.customerTin && v.customerTin === inv.buyerTin);
+    const buyerVehicles = active.filter(v => v.customerTin && String(v.customerTin) === String(inv.buyerTin));
     const eligibleFleet = buyerVehicles.length > 0 ? buyerVehicles : active.filter(v => !v.customerTin);
 
     while (invoiceRemaining > 0.001) {

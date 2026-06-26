@@ -1,8 +1,19 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const BACKUP_DIR = 'D:\\1uz arxiv\\AvtoETTN';
 const MAX_BACKUPS = 30;
+
+// D: disk mavjud bo'lsa — u yerga, aks holda Hujjatlar papkasiga
+function getBackupDir() {
+  try {
+    if (fs.existsSync('D:\\')) {
+      return 'D:\\1uz arxiv\\AvtoETTN';
+    }
+  } catch (_) {}
+  return path.join(os.homedir(), 'Documents', '1uz arxiv', 'AvtoETTN');
+}
+const BACKUP_DIR = getBackupDir();
 
 function ensureBackupDir() {
   if (!fs.existsSync(BACKUP_DIR)) {

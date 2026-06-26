@@ -18,6 +18,7 @@ declare global {
       getCustomers: () => Promise<any>;
       searchCompany: (tin: string) => Promise<any>;
       enrichCustomers: (tins: string[]) => Promise<any[]>;
+      soliqTestApi: (tin: string) => Promise<any>;
       getSettings: () => Promise<any>;
       saveSettings: (settings: any) => Promise<any>;
       splitCargo: (totalQty: number, vehicleIds: string[]) => Promise<any>;
