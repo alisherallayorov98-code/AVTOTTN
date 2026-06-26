@@ -16,6 +16,7 @@ declare global {
       onUpdateProgress: (callback: (percent: number) => void) => void;
       onUpdateDownloaded: (callback: (info: any) => void) => void;
       restartApp: () => void;
+      checkForUpdate: () => Promise<void>;
       getAppVersion: () => Promise<string>;
       openDownloadsFolder: () => Promise<void>;
     };
@@ -24,7 +25,7 @@ declare global {
 
 function App() {
   const [activeTab, setActiveTab] = useState<'invoices' | 'vehicles' | 'settings'>('invoices')
-  const [updateState, setUpdateState] = useState<'idle' | 'available' | 'downloading' | 'ready'>('idle')
+  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error'>('idle')
   const [updateProgress, setUpdateProgress] = useState(0)
   const [appVersion, setAppVersion] = useState('...')
   const [profileKey, setProfileKey] = useState(0)
@@ -185,9 +186,34 @@ function App() {
         <div className="p-4 m-4 bg-primary/10 rounded-xl">
           <p className="text-xs text-primary/80 font-medium text-center">AvtoETTN</p>
           <p className="text-[10px] text-muted-foreground text-center mt-1">v{appVersion}</p>
-          {updateState === 'available' && (
-            <p className="text-[10px] text-amber-500 text-center mt-1 animate-pulse">Yangilanish yuklanmoqda...</p>
+
+          {(updateState === 'idle' || updateState === 'error') && (
+            <button
+              onClick={async () => {
+                setUpdateState('checking')
+                try {
+                  await window.electronAPI?.checkForUpdate()
+                } catch {
+                  setUpdateState('error')
+                }
+              }}
+              className="mt-2 w-full text-[11px] bg-primary/20 text-primary rounded-lg py-1.5 font-medium hover:bg-primary/30 transition-colors"
+            >
+              {updateState === 'error' ? 'Qayta tekshirish' : 'Yangilash tekshirish'}
+            </button>
           )}
+          {updateState === 'error' && (
+            <p className="text-[10px] text-destructive text-center mt-1">Ulanishda xatolik</p>
+          )}
+
+          {updateState === 'checking' && (
+            <p className="text-[10px] text-primary text-center mt-2 animate-pulse">Tekshirilmoqda...</p>
+          )}
+
+          {updateState === 'available' && (
+            <p className="text-[10px] text-amber-500 text-center mt-1 animate-pulse">Yangi versiya yuklanmoqda...</p>
+          )}
+
           {updateState === 'downloading' && (
             <div className="mt-2">
               <div className="w-full bg-primary/20 rounded-full h-1.5">
@@ -196,12 +222,13 @@ function App() {
               <p className="text-[10px] text-primary text-center mt-1">{updateProgress}% yuklandi</p>
             </div>
           )}
+
           {updateState === 'ready' && (
             <button
               onClick={() => window.electronAPI?.restartApp()}
               className="mt-2 w-full text-[11px] bg-emerald-500 text-white rounded-lg py-1.5 font-medium hover:bg-emerald-600 transition-colors animate-pulse"
             >
-              Yangilash — O'rnatish
+              O'rnatish va Qayta Yuklash
             </button>
           )}
         </div>

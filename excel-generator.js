@@ -105,7 +105,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
   const newDataRows = [...templateHeaderRows];
 
   // Agar shablon bo'sh bo'lsa yoki o'qishda xato bo'lsa, boshlang'ich sarlavha qatorlarini o'zimiz yasaymiz
-  if (newDataRows.length < 4) {
+  if (newDataRows.length < 3) {
     console.warn('Creating fallback basic header rows');
     newDataRows[0] = ['п.п ТТН *', 'Тип перевозки *', 'Данные по ТТН'];
     newDataRows[1] = [];

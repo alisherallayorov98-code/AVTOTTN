@@ -115,3 +115,12 @@ app.on('activate', function () {
 ipcMain.on('restart-app', () => {
   autoUpdater.quitAndInstall();
 });
+
+ipcMain.handle('check-for-update', async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (e: any) {
+    log.warn('Manual update check failed:', e?.message);
+    throw new Error(e?.message || 'Yangilashni tekshirib bo\'lmadi');
+  }
+});
