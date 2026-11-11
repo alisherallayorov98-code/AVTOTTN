@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Truck, Settings, Package, Search, Plus, Trash2, Pencil, FileUp, Layers, ChevronDown, CheckCircle2, XCircle, Loader2, Building2, ShieldCheck, RotateCcw, HardDrive } from 'lucide-react'
+import { FileText, Truck, Settings, Package, Search, Plus, Trash2, Pencil, FileUp, Layers, BarChart3, FolderOpen, RefreshCw, X, ChevronDown, CheckCircle2, XCircle, Loader2, Building2, ShieldCheck, RotateCcw, HardDrive } from 'lucide-react'
 import { useInvoices, useVehicles, useSettings, useCustomers } from './hooks/useIpc'
 import { SplitterModal } from './components/SplitterModal'
 import { VehicleModal } from './components/VehicleModal'
@@ -389,6 +389,8 @@ function InvoicesView() {
   const { customers, loading: customersLoading, refetch: refetchCustomers } = useCustomers()
   const [search, setSearch] = useState('')
   const [statusTab, setStatusTab] = useState<'pending' | 'written'>('pending')
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'buyer' | 'qty_desc'>('date_desc')
+  const [period, setPeriod] = useState<'all' | 'today' | 'week' | 'month'>('all')
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showPdfImport, setShowPdfImport] = useState(false)
@@ -420,15 +422,43 @@ function InvoicesView() {
   const pendingInvoices = invoices.filter(i => !i.isWritten)
   const writtenInvoices = invoices.filter(i => i.isWritten)
 
-  const filtered = (statusTab === 'pending' ? pendingInvoices : writtenInvoices).filter(i =>
-    (i.invoiceNumber || '').toLowerCase().includes(search.toLowerCase()) ||
-    (i.buyerName || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const q = search.toLowerCase()
+  const now = new Date()
+  const periodFrom = period === 'today' ? localDate(now)
+    : period === 'week' ? localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6))
+    : period === 'month' ? localDate(new Date(now.getFullYear(), now.getMonth(), 1))
+    : ''
+  const filtered = (statusTab === 'pending' ? pendingInvoices : writtenInvoices)
+    .filter(i =>
+      (i.invoiceNumber || '').toLowerCase().includes(q) ||
+      (i.buyerName || '').toLowerCase().includes(q) ||
+      String(i.buyerTin || '').includes(q)
+    )
+    .filter(i => !periodFrom || String(i.invoiceDate || '').substring(0, 10) >= periodFrom)
+    .sort((a, b) => {
+      if (sortBy === 'buyer') return String(a.buyerName || '').localeCompare(String(b.buyerName || ''))
+      if (sortBy === 'qty_desc') return (b.quantity || 0) - (a.quantity || 0)
+      const d = String(a.invoiceDate || '').localeCompare(String(b.invoiceDate || ''))
+      return sortBy === 'date_asc' ? d : -d
+    })
+
+  const sumTons = (list: any[]) => parseFloat(list.reduce((t, i) => t + (parseFloat(i.quantity) || 0), 0).toFixed(2))
+  const allFilteredSelected = filtered.length > 0 && filtered.every(i => selectedIds.includes(i.id))
+  const toggleSelectAll = () =>
+    setSelectedIds(allFilteredSelected ? selectedIds.filter(id => !filtered.some(i => i.id === id)) : [...new Set([...selectedIds, ...filtered.map(i => i.id)])])
+
+  // Yuk turi belgisi: qo'lda belgilangan yoki tovar nomidan aniqlangan
+  const packagingOf = (inv: any): string[] => {
+    if (inv.packaging === 'bag' || inv.packaging === 'bulk') return [inv.packaging]
+    const set = new Set<string>()
+    for (const it of inv.items || []) if (it.packaging === 'bag' || it.packaging === 'bulk') set.add(it.packaging)
+    return [...set]
+  }
 
   const toggleSelect = (id: string) =>
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
-  const isImported = (inv: any) => typeof inv.id === 'string' && inv.id.startsWith('manual_')
+  const isImported = (inv: any) => typeof inv.id === 'string' && (inv.id.startsWith('manual_') || inv.id.startsWith('rid_'))
 
   const deleteImported = async (inv: any) => {
     if (!confirm(`№ ${inv.invoiceNumber} fakturasini o'chirasizmi?`)) return
@@ -477,108 +507,157 @@ function InvoicesView() {
         </div>
       )}
 
-      {/* Tab va amallar qatori */}
+      {/* Ko'rsatkichlar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Kutilmoqda', value: String(pendingInvoices.length), sub: `${sumTons(pendingInvoices)} t yuk` },
+          { label: 'Yozilgan', value: String(writtenInvoices.length), sub: `${sumTons(writtenInvoices)} t yuk` },
+          { label: "Ro'yxatda", value: String(filtered.length), sub: `${sumTons(filtered)} t · filtr bo'yicha` },
+          { label: 'Tanlangan', value: String(selectedIds.length), sub: `${sumTons(invoices.filter(i => selectedIds.includes(i.id)))} t` },
+        ].map(t => (
+          <div key={t.label} className="border rounded-xl px-4 py-3 bg-background">
+            <div className="text-xs text-muted-foreground">{t.label}</div>
+            <div className="text-xl font-bold text-primary leading-tight">{t.value}</div>
+            <div className="text-[11px] text-muted-foreground">{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tab va amallar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-xl">
           {tabBtn('pending', 'Kutilmoqda', pendingInvoices.length)}
           {tabBtn('written', 'Yozilgan', writtenInvoices.length)}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {selectedIds.length > 0 && (
-            <button onClick={() => setShowBulk(true)} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg shadow hover:opacity-90 transition-opacity font-medium text-sm">
-              <Layers size={16} /> Ommaviy taqsimlash ({selectedIds.length})
-            </button>
-          )}
-          <button onClick={() => setShowPdfImport(true)} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowPdfImport(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:opacity-90 transition-opacity font-medium text-sm">
             <FileUp size={16} /> PDF / ZIP yuklash
           </button>
-          <button onClick={() => setShowReport(true)} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
-            Yuk hisoboti
-          </button>
-          <button onClick={() => window.electronAPI?.openDownloadsFolder?.()} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm" title="Tayyor Excel fayllar papkasini ochish">
-            Tayyor fayllar
-          </button>
-          <button onClick={refetch} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg shadow hover:opacity-90 transition-opacity font-medium text-sm">
-            Yangilash
-          </button>
+          <button onClick={() => setShowReport(true)} className="p-2 rounded-lg border hover:bg-secondary text-muted-foreground hover:text-foreground" title="Yuk hisoboti"><BarChart3 size={18} /></button>
+          <button onClick={() => window.electronAPI?.openDownloadsFolder?.()} className="p-2 rounded-lg border hover:bg-secondary text-muted-foreground hover:text-foreground" title="Tayyor Excel fayllar papkasi"><FolderOpen size={18} /></button>
+          <button onClick={() => refetch()} className="p-2 rounded-lg border hover:bg-secondary text-muted-foreground hover:text-foreground" title="Yangilash"><RefreshCw size={18} /></button>
         </div>
       </div>
 
-      {/* Qidiruv */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-        <input
-          type="text"
-          placeholder="Faktura raqami yoki xaridor nomi..."
-          className="w-full pl-10 pr-4 py-2 bg-secondary/50 border-transparent rounded-lg focus:bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Qidiruv, davr, tartib */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+          <input
+            type="text"
+            placeholder="Faktura №, xaridor nomi yoki STIR..."
+            className="w-full pl-10 pr-4 py-2 bg-secondary/50 border-transparent rounded-lg focus:bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {([['all', 'Hammasi'], ['today', 'Bugun'], ['week', '7 kun'], ['month', 'Shu oy']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setPeriod(k)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${period === k ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground hover:bg-secondary'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="px-3 py-1.5 bg-background border rounded-lg text-sm">
+          <option value="date_desc">Yangilari avval</option>
+          <option value="date_asc">Eskilari avval</option>
+          <option value="buyer">Xaridor bo'yicha</option>
+          <option value="qty_desc">Yuk bo'yicha (katta)</option>
+        </select>
       </div>
 
-      <div className="bg-card rounded-xl border shadow-sm overflow-hidden bg-background">
+      <div className="rounded-xl border shadow-sm overflow-hidden bg-background">
         <table className="w-full text-sm text-left">
-          <thead className="bg-secondary/40 text-muted-foreground">
+          <thead className="bg-secondary/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              {statusTab === 'pending' && <th className="pl-4 pr-2 py-4 w-10"></th>}
-              <th className="px-6 py-4 font-medium">Faktura №</th>
-              <th className="px-6 py-4 font-medium">Sana</th>
-              <th className="px-6 py-4 font-medium">Xaridor</th>
-              <th className="px-6 py-4 font-medium">Yuk (tonna)</th>
-              <th className="px-6 py-4 font-medium text-right">Summa</th>
-              <th className="px-6 py-4 font-medium text-right">Amallar</th>
+              {statusTab === 'pending' && (
+                <th className="pl-4 pr-2 py-3 w-10">
+                  <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} title="Ro'yxatdagilarning hammasini tanlash" className="w-4 h-4 rounded text-primary focus:ring-primary" />
+                </th>
+              )}
+              <th className="px-4 py-3 font-medium">Faktura</th>
+              <th className="px-4 py-3 font-medium">Xaridor</th>
+              <th className="px-4 py-3 font-medium text-right">Yuk</th>
+              <th className="px-4 py-3 font-medium text-right hidden lg:table-cell">Summa</th>
+              <th className="px-4 py-3 font-medium text-right w-44">Amal</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={statusTab === 'pending' ? 7 : 6} className="px-6 py-12 text-center text-muted-foreground">
-                  {statusTab === 'pending' ? 'Kutilayotgan fakturalar yo\'q.' : 'Yozilgan fakturalar yo\'q.'}
+                <td colSpan={statusTab === 'pending' ? 6 : 5} className="px-6 py-12 text-center text-muted-foreground">
+                  {invoices.length === 0
+                    ? "Fakturalar yo'q. «PDF / ZIP yuklash» tugmasi bilan Didox dan yuklangan fakturalarni qo'shing."
+                    : statusTab === 'pending' ? "Bu filtr bo'yicha kutilayotgan fakturalar yo'q." : "Bu filtr bo'yicha yozilgan fakturalar yo'q."}
                 </td>
               </tr>
-            ) : filtered.map(inv => (
-              <tr key={inv.id} className="hover:bg-secondary/20 transition-colors group">
-                {statusTab === 'pending' && (
-                  <td className="pl-4 pr-2 py-4">
-                    <input type="checkbox" checked={selectedIds.includes(inv.id)} onChange={() => toggleSelect(inv.id)} className="w-4 h-4 rounded text-primary focus:ring-primary" />
+            ) : filtered.map(inv => {
+              const checked = selectedIds.includes(inv.id)
+              const pk = packagingOf(inv)
+              return (
+                <tr key={inv.id} className={`transition-colors ${checked ? 'bg-primary/5' : 'hover:bg-secondary/20'}`}>
+                  {statusTab === 'pending' && (
+                    <td className="pl-4 pr-2 py-2.5">
+                      <input type="checkbox" checked={checked} onChange={() => toggleSelect(inv.id)} className="w-4 h-4 rounded text-primary focus:ring-primary" />
+                    </td>
+                  )}
+                  <td className="px-4 py-2.5">
+                    <div className="font-semibold leading-tight">№ {inv.invoiceNumber}</div>
+                    <div className="text-xs text-muted-foreground">{(inv.invoiceDate || '').substring(0, 10)}</div>
                   </td>
-                )}
-                <td className="px-6 py-4 font-medium">{inv.invoiceNumber}</td>
-                <td className="px-6 py-4 text-muted-foreground">{(inv.invoiceDate || '').substring(0, 10)}</td>
-                <td className="px-6 py-4">
-                  <div className="font-medium text-foreground truncate max-w-[250px]">{inv.buyerName}</div>
-                  <div className="text-xs text-muted-foreground">STIR: {inv.buyerTin}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-accent/50 text-accent-foreground text-xs font-semibold">
-                    {inv.quantity} {inv.unitName || 't'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right font-medium">{Number(inv.totalSum).toLocaleString('ru-RU')} UZS</td>
-                <td className="px-6 py-4 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isImported(inv) && (
-                      <button onClick={() => deleteImported(inv)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-md" title="O'chirish">
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                    {statusTab === 'written' && (
-                      <button onClick={() => toggleWritten(inv)} className="px-3 py-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 rounded-md text-xs font-medium transition-colors">
-                        Qaytarish
-                      </button>
-                    )}
-                    {statusTab === 'pending' && (
-                      <button onClick={() => setSelectedInvoice(inv)} className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-md text-xs font-medium transition-colors">
-                        TTN yozish
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium truncate max-w-[280px]">{inv.buyerName}</div>
+                    <div className="text-xs text-muted-foreground">STIR: {inv.buyerTin}</div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                    <div className="font-semibold">{inv.quantity} <span className="text-xs font-normal text-muted-foreground">{inv.unitName || 't'}</span></div>
+                    <div className="flex justify-end gap-1 mt-0.5">
+                      {pk.includes('bulk') && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-600">sochma</span>}
+                      {pk.includes('bag') && <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-600">qopli</span>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-muted-foreground hidden lg:table-cell whitespace-nowrap">{Number(inv.totalSum).toLocaleString('ru-RU')} so'm</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center justify-end gap-2">
+                      {statusTab === 'pending' && (
+                        <button onClick={() => setSelectedInvoice(inv)} className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-md text-xs font-medium transition-colors">
+                          TTN yozish
+                        </button>
+                      )}
+                      {statusTab === 'written' && (
+                        <button onClick={() => toggleWritten(inv)} className="px-3 py-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 rounded-md text-xs font-medium transition-colors" title="Kutilmoqda ro'yxatiga qaytarish">
+                          Qaytarish
+                        </button>
+                      )}
+                      {isImported(inv) && (
+                        <button onClick={() => deleteImported(inv)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-md" title="O'chirish">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* Tanlanganlar paneli */}
+      {selectedIds.length > 0 && (
+        <div className="sticky bottom-4 z-20 flex justify-center">
+          <div className="flex items-center gap-4 bg-foreground text-background rounded-full shadow-2xl pl-5 pr-2 py-2">
+            <span className="text-sm">
+              <b>{selectedIds.length}</b> ta faktura · <b>{sumTons(selectedInvoices)}</b> t
+            </span>
+            <button onClick={() => setShowBulk(true)} className="flex items-center gap-2 px-4 py-1.5 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 transition-colors">
+              <Layers size={15} /> Ommaviy taqsimlash
+            </button>
+            <button onClick={() => setSelectedIds([])} className="p-1.5 rounded-full hover:bg-white/15" title="Tanlovni bekor qilish"><X size={16} /></button>
+          </div>
+        </div>
+      )}
 
       {selectedInvoice && (
         <SplitterModal
@@ -872,7 +951,6 @@ function VehiclesView() {
 function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
   const { settings, loading, refetch } = useSettings()
   const [form, setForm] = useState<any>({})
-  const [units, setUnits] = useState<{ name: string; code: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [testing, setTesting] = useState(false)
@@ -886,8 +964,6 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
   useEffect(() => {
     if (!loading) {
       setForm(settings || {})
-      const uc = settings?.unitCodes || { tonna: 1629438 }
-      setUnits(Object.entries(uc).map(([name, code]) => ({ name, code: String(code) })))
     }
   }, [loading, settings])
 
@@ -915,18 +991,6 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
   if (loading) return null
 
   const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }))
-
-  // Birlik kodlari jadvalini tahrirlash (nomi -> Didox kodi)
-  const commitUnits = (next: { name: string; code: string }[]) => {
-    setUnits(next)
-    const obj: any = {}
-    next.forEach(u => { if (u.name.trim()) obj[u.name.trim().toLowerCase()] = u.code })
-    setForm((prev: any) => ({ ...prev, unitCodes: obj }))
-  }
-  const updateUnit = (idx: number, key: 'name' | 'code', value: string) =>
-    commitUnits(units.map((u, i) => i === idx ? { ...u, [key]: value } : u))
-  const addUnit = () => commitUnits([...units, { name: '', code: '' }])
-  const removeUnit = (idx: number) => commitUnits(units.filter((_, i) => i !== idx))
 
   const handleSave = async () => {
     setSaving(true)
@@ -1159,12 +1223,12 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
           )}
         </section>
 
-        {/* ETTN qiymatlari (Yetkazib berish, ekspeditor, birlik kodlari) */}
+        {/* TTN qiymatlari (ELEX import shabloni) */}
         <section className="bg-card border rounded-xl overflow-hidden bg-background md:col-span-2">
           <div className="px-6 py-4 border-b bg-secondary/30">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <FileText size={18} className="text-primary" />
-              ETTN qiymatlari (Yetkazib berish va birliklar)
+              TTN qiymatlari (yetkazib berish)
             </h3>
           </div>
           <div className="p-6 space-y-5">
@@ -1172,38 +1236,15 @@ function SettingsView({ onProfileRenamed }: { onProfileRenamed?: () => void }) {
               <p className="font-medium text-foreground">Yetkazish masofasi va narxi</p>
               <p>Masofa — yuklash manzili viloyatidan tushirish manzili viloyatigacha avtomatik hisoblanadi.</p>
               <p>Narx: korxona yoki mijoz mashinasi = <b>0 so'm</b>, uchinchi tomon = quyidagi sozlamadan olinadi.</p>
+              <p>Ekspeditor, o'lchov birligi kodi va transport egasi ELEX shablonida yo'q, ular o'zi to'ldiriladi.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
-                  Uchinchi tomon yetkazish narxi (so'm/km)
-                  <span className="text-xs ml-1 text-muted-foreground">(Boshqa birov mashinasi uchun)</span>
-                </label>
-                <input type="number" value={form.deliveryCostPerKm ?? ''} onChange={e => update('deliveryCostPerKm', e.target.value)} placeholder="1" className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Ekspeditor STIR/PINFL <span className="text-xs">(bo'sh → jo'natuvchi STIR)</span></label>
-                <input type="text" value={form.expeditorTin || ''} onChange={e => update('expeditorTin', e.target.value)} placeholder={form.senderTin || 'Jo\'natuvchi STIR'} className={inputCls + ' font-mono'} />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-muted-foreground">O'lchov birliklari kodi <span className="text-xs">(Didox kodlari)</span></label>
-                <button onClick={addUnit} className="text-xs text-primary flex items-center gap-1 hover:underline"><Plus size={12} /> Birlik qo'shish</button>
-              </div>
-              <div className="space-y-2 max-w-xl">
-                {units.map((u, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input className={inputCls} placeholder="Birlik nomi (masalan: tonna)" value={u.name} onChange={e => updateUnit(idx, 'name', e.target.value)} />
-                    <input className={inputCls + ' font-mono w-40'} placeholder="Kod (masalan: 1629438)" value={u.code} onChange={e => updateUnit(idx, 'code', e.target.value)} />
-                    <button onClick={() => removeUnit(idx)} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 size={16} /></button>
-                  </div>
-                ))}
-                {units.length === 0 && <p className="text-xs text-muted-foreground">Birlik qo'shilmagan — barcha tovarlar standart "tonna" (1629438) kodi bilan ketadi.</p>}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-2">Tovar birligi shu jadvalda bo'lmasa, standart <b>tonna (1629438)</b> kodi ishlatiladi.</p>
+            <div className="max-w-md">
+              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
+                Uchinchi tomon yetkazish narxi (so'm/km)
+                <span className="text-xs ml-1 text-muted-foreground">(Boshqa birov mashinasi uchun)</span>
+              </label>
+              <input type="number" value={form.deliveryCostPerKm ?? ''} onChange={e => update('deliveryCostPerKm', e.target.value)} placeholder="1" className={inputCls} />
             </div>
           </div>
         </section>
