@@ -29,6 +29,9 @@ function createRemoteDb(serverIp, port) {
     markInvoiceAsWritten:   (id) => ax.post('/api/written-ids/mark', { id }).then(r => r.data),
     unmarkInvoiceAsWritten: (id) => ax.post('/api/written-ids/unmark', { id }).then(r => r.data),
 
+    addTtnLog:              (e) => ax.post('/api/ttn-log', { entries: e }).then(r => r.data),
+    getTtnLog:              () => ax.get('/api/ttn-log').then(r => r.data),
+
     ping:                   () => ax.get('/ping', { timeout: 3000 }).then(r => r.data),
   };
 }

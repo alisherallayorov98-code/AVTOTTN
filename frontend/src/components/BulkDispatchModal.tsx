@@ -8,6 +8,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
   const [enriching, setEnriching] = useState(false)
   const [allocations, setAllocations] = useState<any[]>([])
   const [remaining, setRemaining] = useState<any[]>([])
+  const [pkgOverrides, setPkgOverrides] = useState<{ [id: string]: string }>({})
   const [addrOverrides, setAddrOverrides] = useState<{ [id: string]: string }>({})
   const [fetchedAddrs, setFetchedAddrs] = useState<{ [tin: string]: string }>({})
 
@@ -52,6 +53,17 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
       .catch(() => {})
       .finally(() => setEnriching(false))
   }, [loading])
+
+  // Faktura yuk turini qo'lda belgilash (qopli / sochma) va qayta taqsimlash
+  const setPackaging = async (invId: string, value: string) => {
+    const next = { ...pkgOverrides, [invId]: value === 'auto' ? '' : value }
+    setPkgOverrides(next)
+    try {
+      const result = await window.api.bulkSplit(invoices.map((i: any) => i.id), next)
+      setAllocations(result.allocations || [])
+      setRemaining(result.remainingInvoices || [])
+    } catch (e: any) { toast('Xatolik: ' + e.message, 'error') }
+  }
 
   const invById = (id: string) => invoices.find((i: any) => i.id === id)
   const vehById = (id: string) => vehicles.find((v: any) => v.id === id)
@@ -132,7 +144,19 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                   <div key={invId} className="border rounded-xl overflow-hidden">
                     <div className="px-4 py-2.5 bg-secondary/30 flex justify-between items-center">
                       <span className="font-medium text-sm">№ {inv?.invoiceNumber} · {inv?.buyerName}</span>
-                      <span className="text-xs text-muted-foreground">{inv?.quantity} t</span>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <select
+                          className="text-xs border rounded px-1.5 py-0.5 bg-background"
+                          value={pkgOverrides[invId] || 'auto'}
+                          title="Yuk turi: avtomatik yoki qo'lda"
+                          onChange={e => setPackaging(invId, e.target.value)}
+                        >
+                          <option value="auto">Tur: avtomatik</option>
+                          <option value="bag">Qopli</option>
+                          <option value="bulk">Sochma</option>
+                        </select>
+                        {inv?.quantity} t
+                      </span>
                     </div>
                     <div className="divide-y">
                       {allocs.map((a: any, i: number) => {
@@ -144,6 +168,8 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                               <Truck size={14} className="text-muted-foreground" />
                               {v?.plateNumber}
                               <span className="text-xs text-muted-foreground">({a.tripIndex}-reys)</span>
+                              {a.packaging === 'bulk' && <span className="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">sochma</span>}
+                              {a.packaging === 'bag' && <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">qopli</span>}
                               {isBuyerVehicle && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">xaridor</span>}
                             </span>
                             <span className="font-medium text-primary">{a.quantity} t</span>
@@ -193,7 +219,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                     <p className="font-medium text-amber-600">Sig'im yetmadi — quyidagilar to'liq taqsimlanmadi:</p>
                     <ul className="mt-1 text-muted-foreground text-xs space-y-0.5">
                       {remaining.map((r: any, i: number) => (
-                        <li key={i}>№ {invById(r.invoiceId)?.invoiceNumber} — qoldi: {r.remainingQty} t</li>
+                        <li key={i}>№ {invById(r.invoiceId)?.invoiceNumber} {r.packaging === 'bulk' ? '(sochma)' : r.packaging === 'bag' ? '(qopli)' : ''} — qoldi: {r.remainingQty} t{r.reason === 'no_vehicle' ? ' — mos mashina yo\'q (sementovoz kerak?)' : ''}</li>
                       ))}
                     </ul>
                   </div>

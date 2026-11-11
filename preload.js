@@ -47,12 +47,14 @@ contextBridge.exposeInMainWorld('api', {
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   testFirebirdConnection: () => ipcRenderer.invoke('test-firebird-connection'),
   splitCargo: (totalQuantity, vehicleIds) => ipcRenderer.invoke('split-cargo', totalQuantity, vehicleIds),
-  bulkSplit: (invoiceIds) => ipcRenderer.invoke('bulk-split', invoiceIds),
+  bulkSplit: (invoiceIds, overrides) => ipcRenderer.invoke('bulk-split', invoiceIds, overrides),
   generateExcel: (invoiceId, allocations, unloadingAddress) => ipcRenderer.invoke('generate-excel', invoiceId, allocations, unloadingAddress),
   bulkGenerateExcel: (allocations, unloadingAddresses) => ipcRenderer.invoke('bulk-generate-excel', allocations, unloadingAddresses),
   saveManualInvoice: (invoice) => ipcRenderer.invoke('save-manual-invoice', invoice),
   deleteManualInvoice: (id) => ipcRenderer.invoke('delete-manual-invoice', id),
   extractPdfs: (buffer) => ipcRenderer.invoke('extract-pdfs', buffer),
   parsePdf: (buffer) => ipcRenderer.invoke('parse-pdf', buffer),
+  getTtnReport: (from, to) => ipcRenderer.invoke('get-ttn-report', from, to),
+  checkInvoiceDuplicates: (list) => ipcRenderer.invoke('check-invoice-duplicates', list),
   parsePdfsFromFolder: () => ipcRenderer.invoke('parse-pdfs-from-folder')
 });

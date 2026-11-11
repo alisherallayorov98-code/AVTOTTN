@@ -97,13 +97,25 @@ function migrate(data) {
       });
     });
   });
+  // Eski (SOATO bo'lmagan) yuklash viloyati kodlarini standart qiymatga qaytarish
+  const validOblasts = ['1703','1706','1708','1710','1712','1714','1718','1722','1724','1726','1727','1730','1733','1735'];
+  Object.values(data.profiles).forEach(profile => {
+    const st = profile.settings || {};
+    if (st.loadingOblast && !validOblasts.includes(String(st.loadingOblast))) {
+      st.loadingOblast = '1726'; st.loadingRayon = '13'; changed = true;
+    }
+  });
   if (changed) saveData(data);
   return data;
 }
 
 function saveData(data) {
   try {
-    fs.writeFileSync(getDbPath(), JSON.stringify(data, null, 2), 'utf8');
+    // Atomik yozish: avval vaqtinchalik faylga, keyin almashtirish (uzilishda db.json buzilmasligi uchun)
+    const target = getDbPath();
+    const tmp = target + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmp, target);
     return true;
   } catch (err) {
     console.error('db.json yozishda xatolik:', err);
@@ -247,7 +259,11 @@ module.exports = {
   saveManualInvoice: (invoice) => {
     const { data, profile } = current();
     if (!profile.manualInvoices) profile.manualInvoices = [];
-    if (!invoice.id) invoice.id = 'manual_' + Date.now();
+    if (!invoice.id && invoice.roamingId) {
+      const same = profile.manualInvoices.find(i => i.roamingId && String(i.roamingId).toLowerCase() === String(invoice.roamingId).toLowerCase());
+      invoice.id = same ? same.id : 'rid_' + invoice.roamingId;
+    }
+    if (!invoice.id) invoice.id = 'manual_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     const idx = profile.manualInvoices.findIndex(inv => inv.id === invoice.id);
     if (idx !== -1) profile.manualInvoices[idx] = { ...profile.manualInvoices[idx], ...invoice };
     else profile.manualInvoices.push(invoice);
@@ -264,6 +280,19 @@ module.exports = {
   },
 
   // ─── Yozilgan faktura IDlari ─────────────────────────────────────────────────
+  addTtnLog: (entries) => {
+    const { data, profile } = current();
+    if (!profile.ttnLog) profile.ttnLog = [];
+    profile.ttnLog.push(...(entries || []));
+    save(data, profile);
+    return true;
+  },
+
+  getTtnLog: () => {
+    const { profile } = current();
+    return profile.ttnLog || [];
+  },
+
   getWrittenInvoiceIds: () => {
     const { profile } = current();
     return profile.writtenInvoiceIds || [];

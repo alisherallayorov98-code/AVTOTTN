@@ -40,6 +40,8 @@ function parseRowValues(rowText) {
   };
 }
 
+const { detectPackaging } = require('./cargo-type');
+
 async function parseInvoicePdf(buffer) {
   const data = await pdf(buffer);
   
@@ -120,6 +122,7 @@ async function parseInvoicePdf(buffer) {
           items.push({
             productName: productName.replace(/\s+/g, ' ').trim(),
             productMxik: mxik,
+            packaging: detectPackaging(productName),
             unitName: values.unitName,
             quantity: values.quantity,
             price: values.price,
@@ -135,7 +138,12 @@ async function parseInvoicePdf(buffer) {
     }
   }
   
+  const roamingMatch = text.match(/Rouming\.uz\)\s*:\s*([0-9a-f]{24})/i);
+  const didoxMatch = text.match(/Didox\.uz\)\s*:\s*([0-9a-f]{32})/i);
+
   return {
+    roamingId: roamingMatch ? roamingMatch[1].toLowerCase() : '',
+    didoxId: didoxMatch ? didoxMatch[1].toLowerCase() : '',
     invoiceNumber,
     invoiceDate,
     buyerTin,

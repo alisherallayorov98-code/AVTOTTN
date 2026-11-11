@@ -15,6 +15,7 @@ const empty = {
   transportOwnerTin: '',
   vehicleOwnerType: 'own',
   customerTin: '',
+  cargoType: 'any',
   maxCapacity: 40,
   maxDailyTrips: 2,
   isActive: true,
@@ -22,7 +23,7 @@ const empty = {
 
 const inputCls = "w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
 
-export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any) {
+export function VehicleModal({ vehicle, onClose, onSaved, customers = [], vehicles = [] }: any) {
   const [form, setForm] = useState<any>({ ...empty, ...(vehicle || {}) })
   const [saving, setSaving] = useState(false)
   const [tinLookup, setTinLookup] = useState<{ loading: boolean; name: string | null }>({ loading: false, name: null })
@@ -48,6 +49,12 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any)
   const handleSave = async () => {
     if (!form.plateNumber?.trim()) return toast("Davlat raqamini kiriting!", 'error')
     if (!form.driverName?.trim()) return toast("Haydovchi ismini kiriting!", 'error')
+    const norm = (x: any) => String(x || '').replace(/\s+/g, '').toUpperCase()
+    if (vehicles.some((x: any) => x.id !== vehicle?.id && norm(x.plateNumber) === norm(form.plateNumber))) {
+      return toast("Bu davlat raqamli mashina allaqachon mavjud!", 'error')
+    }
+    const pinfl = String(form.driverPinfl || '').replace(/\D/g, '')
+    if (pinfl && pinfl.length !== 14) return toast("Haydovchi JShShIR 14 ta raqam bo'lishi kerak!", 'error')
     if (!form.maxCapacity || Number(form.maxCapacity) <= 0) return toast("Sig'im 0 dan katta bo'lishi kerak!", 'error')
 
     setSaving(true)
@@ -126,6 +133,14 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [] }: any)
           <div>
             <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Mashina egaligi va transport egasi</h3>
             <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Yuk turi</label>
+                <select className={inputCls} value={form.cargoType ?? 'any'} onChange={e => update('cargoType', e.target.value)}>
+                  <option value="any">Universal (qopli va boshqa yuklar)</option>
+                  <option value="bag">Faqat qopli sement</option>
+                  <option value="bulk">Sementovoz (sochma / rassipnoy)</option>
+                </select>
+              </div>
               <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Mashina turi</label>
                 <select

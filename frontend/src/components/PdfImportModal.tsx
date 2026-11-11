@@ -7,6 +7,25 @@ export function PdfImportModal({ onClose, onImported }: any) {
   const [parsing, setParsing] = useState(false)
   const [parsed, setParsed] = useState<any[]>([])
 
+  // Roaming ID bo'yicha avval yuklanganlarni aniqlash: yangi → tanlangan; takror → tanlanmagan
+  const markDuplicates = async (list: any[]) => {
+    const ok = list.filter(p => p._ok)
+    let statuses: any[] = []
+    try { statuses = await window.api.checkInvoiceDuplicates(ok) } catch { statuses = [] }
+    let i = 0
+    const out = list.map(p => {
+      if (!p._ok) return p
+      const st = statuses[i++] || { status: 'new' }
+      return { ...p, _status: st.status, _existingId: st.existingId, _selected: st.status === 'new' }
+    })
+    const cnt = (s: string) => out.filter(p => p._status === s).length
+    const dup = cnt('written') + cnt('pending') + cnt('batch')
+    if (dup > 0) {
+      toast(`${cnt('new')} ta yangi · ${cnt('written')} ta avval yuklangan (TTN yozilgan) · ${cnt('pending')} ta yuklangan, TTN yozilmagan · ${cnt('batch')} ta fayl ichida takror`, 'info')
+    }
+    return out
+  }
+
   const handlePdfSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -31,7 +50,8 @@ export function PdfImportModal({ onClose, onImported }: any) {
         toast(`"${file.name}" xatolik: ${err.message}`, 'error')
       }
     }
-    setParsed(prev => [...prev, ...results])
+    const marked = await markDuplicates(results)
+    setParsed(prev => [...prev, ...marked])
     setParsing(false)
     e.target.value = ''
   }
@@ -67,7 +87,7 @@ export function PdfImportModal({ onClose, onImported }: any) {
           results.push({ _fileName: item.fileName, _selected: false, _ok: false })
         }
       }
-      setParsed(results)
+      setParsed(await markDuplicates(results))
       const okCount = results.filter(r => r._ok).length
       toast(`${okCount} ta faktura o'qildi ✓`, 'success')
     } catch (err: any) {
@@ -87,7 +107,8 @@ export function PdfImportModal({ onClose, onImported }: any) {
     let ok = 0
     for (const inv of toImport) {
       try {
-        const { _fileName, _selected, _ok, ...clean } = inv
+        const { _fileName, _selected, _ok, _status, _existingId, ...clean } = inv
+        if (_existingId) (clean as any).id = _existingId
         await window.api.saveManualInvoice(clean)
         ok++
       } catch (err: any) {
@@ -153,10 +174,10 @@ export function PdfImportModal({ onClose, onImported }: any) {
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-muted-foreground">{parsed.length} ta fayl o'qildi:</p>
                 <button
-                  onClick={() => setParsed(prev => prev.map(p => p._ok ? { ...p, _selected: true } : p))}
+                  onClick={() => setParsed(prev => prev.map(p => p._ok ? { ...p, _selected: p._status === 'new' || !p._status } : p))}
                   className="text-xs text-primary hover:underline"
                 >
-                  Barchasini tanlash
+                  Yangilarni tanlash
                 </button>
               </div>
               {parsed.map((p, idx) => (
@@ -171,7 +192,12 @@ export function PdfImportModal({ onClose, onImported }: any) {
                   <div className="flex-1 min-w-0">
                     {p._ok ? (
                       <>
-                        <div className="font-medium text-sm truncate">№ {p.invoiceNumber || '—'} · {p.buyerName || 'Noma\'lum xaridor'}</div>
+                        <div className="font-medium text-sm truncate">
+                          № {p.invoiceNumber || '—'} · {p.buyerName || 'Noma\'lum xaridor'}
+                          {p._status === 'written' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-600">Avval yuklangan · TTN yozilgan</span>}
+                          {p._status === 'pending' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600">Yuklangan · TTN yozilmagan</span>}
+                          {p._status === 'batch' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">Faylda takror</span>}
+                        </div>
                         <div className="text-xs text-muted-foreground">STIR: {p.buyerTin || '—'} · {p.quantity} t · {Number(p.totalSum || 0).toLocaleString('ru-RU')} so'm</div>
                       </>
                     ) : (

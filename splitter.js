@@ -9,8 +9,12 @@
  * Bitta faktura uchun optimal taqsimlash.
  * Round-robin: avval barcha mashinalar 1-reysini bajaradi, keyin 2-reysni, h.k.
  */
-function autoSplit(totalQuantity, vehicles) {
-  const active = vehicles.filter(v => v.isActive !== false);
+const { vehicleFits, packagingGroups } = require('./cargo-type');
+const cap = (v) => { const c = parseFloat(v.maxCapacity); return c > 0 ? c : 0; };
+const round3 = (n) => parseFloat(n.toFixed(3));
+
+function autoSplit(totalQuantity, vehicles, packaging = 'any') {
+  const active = vehicles.filter(v => v.isActive !== false && cap(v) > 0 && vehicleFits(v, packaging));
   if (totalQuantity <= 0 || active.length === 0) {
     return { allocations: [], remaining: totalQuantity };
   }
@@ -23,7 +27,7 @@ function autoSplit(totalQuantity, vehicles) {
     // Har trip davrida mashinalarni sig'imi bo'yicha kamayish tartibida saralaymiz
     const vehiclesForTrip = active
       .filter(v => (parseInt(v.maxDailyTrips) || 2) >= trip)
-      .sort((a, b) => (parseFloat(b.maxCapacity) || 0) - (parseFloat(a.maxCapacity) || 0));
+      .sort((a, b) => cap(b) - cap(a));
     for (const v of vehiclesForTrip) {
       slots.push({ vehicle: v, tripIndex: trip });
     }
@@ -34,13 +38,14 @@ function autoSplit(totalQuantity, vehicles) {
 
   for (const slot of slots) {
     if (remaining <= 0.001) break;
-    const allocated = Math.min(remaining, slot.vehicle.maxCapacity);
+    const allocated = Math.min(remaining, cap(slot.vehicle));
     allocations.push({
       vehicle: slot.vehicle,
+      packaging,
       quantityAllocated: parseFloat(allocated.toFixed(3)),
       tripIndex: slot.tripIndex
     });
-    remaining -= allocated;
+    remaining = round3(remaining - allocated);
   }
 
   return {
@@ -58,7 +63,7 @@ function autoSplit(totalQuantity, vehicles) {
  * Misol: 50 faktura, 4 mashina → har bir mashina ~12-13 reys (1 mashina 30, boshqasi 5 reys emas)
  */
 function bulkAutoDispatch(invoices, fleet) {
-  const active = fleet.filter(v => v.isActive !== false);
+  const active = fleet.filter(v => v.isActive !== false && cap(v) > 0);
 
   if (invoices.length === 0 || active.length === 0) {
     return {
@@ -75,47 +80,54 @@ function bulkAutoDispatch(invoices, fleet) {
   const remainingInvoices = [];
 
   for (const inv of invoices) {
-    let invoiceRemaining = parseFloat(inv.quantity) || 0;
-
     // Xaridorning o'z mashinasi bo'lsa — faqat shulardan foydalanish
     const buyerVehicles = active.filter(v => v.customerTin && String(v.customerTin) === String(inv.buyerTin));
-    const eligibleFleet = buyerVehicles.length > 0 ? buyerVehicles : active.filter(v => !v.customerTin);
+    const baseFleet = buyerVehicles.length > 0 ? buyerVehicles : active.filter(v => !v.customerTin);
 
-    while (invoiceRemaining > 0.001) {
-      // Hali trip limiti to'lmagan mashinalar (maxDailyTrips hisobga olinadi)
-      const available = eligibleFleet.filter(
-        v => tripCount[v.id] < (parseInt(v.maxDailyTrips) || 2)
-      );
+    // Qopli va sochma sement alohida taqsimlanadi (sochma faqat sementovozda)
+    for (const group of packagingGroups(inv)) {
+      const packaging = group.packaging;
+      const eligibleFleet = baseFleet.filter(v => vehicleFits(v, packaging));
+      let groupRemaining = group.quantity;
 
-      if (available.length === 0) break; // Barcha mashinalar limitni to'ldirdi
+      while (groupRemaining > 0.001) {
+        // Hali trip limiti to'lmagan mashinalar (maxDailyTrips hisobga olinadi)
+        const available = eligibleFleet.filter(
+          v => tripCount[v.id] < (parseInt(v.maxDailyTrips) || 2)
+        );
+        if (available.length === 0) break; // mos mashina yo'q yoki limit to'ldi
 
-      // Eng kam reys bajargan, keyin eng ko'p sig'imli mashinani tanlaymiz
-      available.sort((a, b) => {
-        const diff = tripCount[a.id] - tripCount[b.id];
-        if (diff !== 0) return diff;
-        return (parseFloat(b.maxCapacity) || 0) - (parseFloat(a.maxCapacity) || 0);
-      });
+        // Eng kam reys bajargan, keyin eng ko'p sig'imli mashinani tanlaymiz
+        available.sort((a, b) => {
+          const diff = tripCount[a.id] - tripCount[b.id];
+          if (diff !== 0) return diff;
+          return cap(b) - cap(a);
+        });
 
-      const vehicle = available[0];
-      const tripIndex = tripCount[vehicle.id] + 1;
-      const allocated = Math.min(invoiceRemaining, vehicle.maxCapacity);
+        const vehicle = available[0];
+        const tripIndex = tripCount[vehicle.id] + 1;
+        const allocated = Math.min(groupRemaining, cap(vehicle));
 
-      allocations.push({
-        invoiceId: inv.id,
-        vehicleId: vehicle.id,
-        tripIndex,
-        quantity: parseFloat(allocated.toFixed(3))
-      });
+        allocations.push({
+          invoiceId: inv.id,
+          vehicleId: vehicle.id,
+          packaging,
+          tripIndex,
+          quantity: parseFloat(allocated.toFixed(3))
+        });
 
-      tripCount[vehicle.id]++;
-      invoiceRemaining -= allocated;
-    }
+        tripCount[vehicle.id]++;
+        groupRemaining = round3(groupRemaining - allocated);
+      }
 
-    if (invoiceRemaining > 0.001) {
-      remainingInvoices.push({
-        invoiceId: inv.id,
-        remainingQty: parseFloat(invoiceRemaining.toFixed(3))
-      });
+      if (groupRemaining > 0.001) {
+        remainingInvoices.push({
+          invoiceId: inv.id,
+          packaging,
+          remainingQty: parseFloat(groupRemaining.toFixed(3)),
+          reason: eligibleFleet.length === 0 ? 'no_vehicle' : 'trip_limit'
+        });
+      }
     }
   }
 

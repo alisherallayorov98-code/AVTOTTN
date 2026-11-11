@@ -78,6 +78,10 @@ function startServer(port) {
   app.post('/api/written-ids/mark',        route(req => db.markInvoiceAsWritten(req.body.id)));
   app.post('/api/written-ids/unmark',      route(req => db.unmarkInvoiceAsWritten(req.body.id)));
 
+  // TTN jurnali (qopli/sochma hisobi uchun)
+  app.get('/api/ttn-log',                  route(() => db.getTtnLog()));
+  app.post('/api/ttn-log',                 route(req => db.addTtnLog(req.body.entries)));
+
   return new Promise((resolve, reject) => {
     const srv = app.listen(port || DEFAULT_PORT, '0.0.0.0', () => {
       serverInstance = srv;

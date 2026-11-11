@@ -91,6 +91,19 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
     const chosenVehicles = buyerVehicles.length > 0 ? buyerVehicles : activeVehicles.filter((v: any) => !v.customerTin)
     setSelectedVehicles(chosenVehicles)
     try {
+      // Qopli / sochma (sementovoz) ajratilgan aqlli taqsimlash
+      const smart = await window.api.bulkSplit([invoice.id])
+      if (smart?.allocations?.length > 0) {
+        const used = smart.allocations.map((a: any) => a.vehicleId)
+        setSelectedVehicles(vehicles.filter((v: any) => used.includes(v.id)))
+        setAllocations(smart.allocations.map((a: any) => ({
+          vehicleId: a.vehicleId,
+          quantity: a.quantity,
+          tripIndex: a.tripIndex || 1,
+          packaging: a.packaging || 'any',
+        })))
+        return
+      }
       const result = await window.api.splitCargo(invoice.quantity, chosenVehicles.map((v: any) => v.id))
       setAllocations(result.allocations.map((a: any) => ({
         vehicleId: a.vehicle.id,

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Truck, Settings, Package, Search, Plus, Phone, User, Trash2, Pencil, FileUp, Layers, ChevronDown, CheckCircle2, XCircle, Loader2, Building2, ShieldCheck, RotateCcw, HardDrive } from 'lucide-react'
+import { FileText, Truck, Settings, Package, Search, Plus, Trash2, Pencil, FileUp, Layers, ChevronDown, CheckCircle2, XCircle, Loader2, Building2, ShieldCheck, RotateCcw, HardDrive } from 'lucide-react'
 import { useInvoices, useVehicles, useSettings, useCustomers } from './hooks/useIpc'
 import { SplitterModal } from './components/SplitterModal'
 import { VehicleModal } from './components/VehicleModal'
 import { PdfImportModal } from './components/PdfImportModal'
 import { BulkDispatchModal } from './components/BulkDispatchModal'
+import { CargoReportModal } from './components/CargoReportModal'
 import { Toaster, toast } from './components/Toast'
 import { RegionDistrictPicker } from './components/RegionDistrictPicker'
 
@@ -373,6 +374,7 @@ function InvoicesView() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showPdfImport, setShowPdfImport] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
 
   // Fakturalar yuklananda xaridor STIR'larini fon rejimida bir marta boyitish
@@ -471,6 +473,9 @@ function InvoicesView() {
           )}
           <button onClick={() => setShowPdfImport(true)} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
             <FileUp size={16} /> PDF / ZIP yuklash
+          </button>
+          <button onClick={() => setShowReport(true)} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm">
+            Yuk hisoboti
           </button>
           <button onClick={() => window.electronAPI?.openDownloadsFolder?.()} className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium text-sm" title="Tayyor Excel fayllar papkasini ochish">
             Tayyor fayllar
@@ -575,6 +580,8 @@ function InvoicesView() {
         />
       )}
 
+      {showReport && <CargoReportModal onClose={() => setShowReport(false)} />}
+
       {showBulk && (
         <BulkDispatchModal
           invoices={selectedInvoices}
@@ -592,15 +599,43 @@ function VehiclesView() {
   const { vehicles, loading, refetch } = useVehicles()
   const { customers } = useCustomers()
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'bulk' | 'bag' | 'any'>('all')
   const [editing, setEditing] = useState<any>(null)
   const [showModal, setShowModal] = useState(false)
+  const [todayByPlate, setTodayByPlate] = useState<{ [plate: string]: { trips: number; tons: number } }>({})
+
+  // Bugungi yuklanish: TTN jurnalidan har bir mashina bo'yicha reys va tonna
+  useEffect(() => {
+    const d = new Date().toISOString().slice(0, 10)
+    window.api.getTtnReport(d, d)
+      .then((r: any) => {
+        const map: any = {}
+        for (const v of r?.byVehicle || []) map[v.plateNumber] = { trips: v.trips, tons: v.tons }
+        setTodayByPlate(map)
+      })
+      .catch(() => {})
+  }, [vehicles])
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
 
-  const filtered = vehicles.filter(v =>
-    (v.plateNumber || '').toLowerCase().includes(search.toLowerCase()) ||
-    (v.driverName || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const q = search.toLowerCase()
+  const filtered = vehicles
+    .filter(v =>
+      (v.plateNumber || '').toLowerCase().includes(q) ||
+      (v.driverName || '').toLowerCase().includes(q) ||
+      (v.vehicleModel || '').toLowerCase().includes(q)
+    )
+    .filter(v => statusFilter === 'all' || (statusFilter === 'active' ? v.isActive !== false : v.isActive === false))
+    .filter(v => typeFilter === 'all' || (v.cargoType || 'any') === typeFilter)
+    .sort((a, b) => String(a.plateNumber || '').localeCompare(String(b.plateNumber || '')))
+
+  const activeCount = vehicles.filter(v => v.isActive !== false).length
+  const totalCapacity = vehicles.filter(v => v.isActive !== false).reduce((sum, v) => sum + (parseFloat(v.maxCapacity) || 0), 0)
+  const bulkCount = vehicles.filter(v => v.cargoType === 'bulk').length
+  const noPinfl = vehicles.filter(v => v.isActive !== false && String(v.driverPinfl || '').replace(/\D/g, '').length !== 14)
+  const todayTrips = Object.values(todayByPlate).reduce((sum, x) => sum + x.trips, 0)
+  const todayTons = Object.values(todayByPlate).reduce((sum, x) => sum + x.tons, 0)
 
   const openAdd = () => { setEditing(null); setShowModal(true) }
   const openEdit = (v: any) => { setEditing(v); setShowModal(true) }
@@ -633,57 +668,83 @@ function VehiclesView() {
     clientGroups[v.customerTin].push(v)
   }
 
-  const VehicleCard = ({ v }: { v: any }) => (
-    <div key={v.id} className="group relative bg-card border rounded-xl p-5 hover:shadow-lg hover:border-primary/50 transition-all duration-300 flex flex-col h-full bg-background">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 p-2.5 rounded-lg text-primary">
-            <Truck size={20} />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg leading-tight">{v.plateNumber}</h3>
-            <p className="text-xs text-muted-foreground">{v.vehicleModel || 'Model kiritilmagan'}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => toggleActive(v)}
-          title={v.isActive !== false ? 'Nofaol qilish' : 'Faol qilish'}
-          className={`w-3 h-3 rounded-full transition-colors hover:ring-2 hover:ring-offset-1 ${v.isActive !== false ? 'bg-emerald-500 hover:ring-emerald-400' : 'bg-destructive hover:ring-destructive/50'}`}
-        />
-      </div>
+  const TYPE_BADGE: any = {
+    bulk: { label: 'Sementovoz', cls: 'bg-sky-500/15 text-sky-600' },
+    bag: { label: 'Qopli', cls: 'bg-orange-500/15 text-orange-600' },
+    any: { label: 'Universal', cls: 'bg-secondary text-muted-foreground' },
+  }
 
-      <div className="space-y-3 flex-1">
-        <div className="flex items-center gap-2 text-sm">
-          <User size={14} className="text-muted-foreground" />
-          <span className="font-medium">{v.driverName}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Phone size={14} />
-          <span>{v.driverPhone || 'Noma\'lum'}</span>
-        </div>
-
-        <div className="pt-3 mt-3 border-t grid grid-cols-2 gap-2 text-center">
-          <div className="bg-secondary/50 rounded-lg py-2">
-            <div className="text-xs text-muted-foreground mb-0.5">Sig'im</div>
-            <div className="font-bold text-primary">{v.maxCapacity} <span className="text-xs font-normal">t</span></div>
-          </div>
-          <div className="bg-secondary/50 rounded-lg py-2">
-            <div className="text-xs text-muted-foreground mb-0.5">Maks. Reys</div>
-            <div className="font-bold text-foreground">{v.maxDailyTrips || 2} <span className="text-xs font-normal">marta</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-        <button onClick={() => openEdit(v)} className="bg-background/80 backdrop-blur border p-1.5 rounded-md text-muted-foreground hover:text-primary shadow-sm" title="Tahrirlash">
-          <Pencil size={14} />
-        </button>
-        <button onClick={() => handleDelete(v)} className="bg-background/80 backdrop-blur border p-1.5 rounded-md text-muted-foreground hover:text-destructive shadow-sm" title="O'chirish">
-          <Trash2 size={14} />
-        </button>
-      </div>
+  const VehicleTable = ({ list }: { list: any[] }) => (
+    <div className="border rounded-xl overflow-hidden bg-background">
+      <table className="w-full text-sm">
+        <thead className="bg-secondary/40 text-xs text-muted-foreground uppercase tracking-wide">
+          <tr>
+            <th className="w-8 py-2 pl-4"></th>
+            <th className="text-left py-2 px-3">Mashina</th>
+            <th className="text-left py-2 px-3">Haydovchi</th>
+            <th className="text-left py-2 px-3 hidden lg:table-cell">Telefon</th>
+            <th className="text-left py-2 px-3">Yuk turi</th>
+            <th className="text-right py-2 px-3">Sig'im</th>
+            <th className="text-left py-2 px-3 w-40">Bugun (reys)</th>
+            <th className="w-20 py-2 pr-4"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {list.map(v => {
+            const active = v.isActive !== false
+            const t = TYPE_BADGE[v.cargoType || 'any'] || TYPE_BADGE.any
+            return (
+              <tr key={v.id} className={`group hover:bg-secondary/30 transition-colors ${active ? '' : 'opacity-50'}`}>
+                <td className="pl-4">
+                  <button
+                    onClick={() => toggleActive(v)}
+                    title={active ? 'Nofaol qilish' : 'Faol qilish'}
+                    className={`block w-2.5 h-2.5 rounded-full hover:ring-2 hover:ring-offset-1 ${active ? 'bg-emerald-500 hover:ring-emerald-400' : 'bg-destructive hover:ring-destructive/50'}`}
+                  />
+                </td>
+                <td className="py-2 px-3">
+                  <div className="font-bold leading-tight">{v.plateNumber}</div>
+                  <div className="text-xs text-muted-foreground">{v.vehicleModel || '—'}</div>
+                </td>
+                <td className="py-2 px-3">
+                  <div className="font-medium leading-tight">{v.driverName || '—'}</div>
+                  {String(v.driverPinfl || '').replace(/\D/g, '').length !== 14 && (
+                    <div className="text-[11px] text-amber-600">JShShIR kiritilmagan</div>
+                  )}
+                </td>
+                <td className="py-2 px-3 text-muted-foreground hidden lg:table-cell">{v.driverPhone || '—'}</td>
+                <td className="py-2 px-3"><span className={`text-xs px-2 py-0.5 rounded-full ${t.cls}`}>{t.label}</span></td>
+                <td className="py-2 px-3 text-right font-bold text-primary">{v.maxCapacity} <span className="text-xs font-normal">t</span></td>
+                <td className="py-2 px-3">
+                  {(() => {
+                    const max = parseInt(v.maxDailyTrips) || 2
+                    const used = todayByPlate[v.plateNumber]?.trips || 0
+                    const pct = Math.min(100, Math.round((used / max) * 100))
+                    return (
+                      <div title={`Bugun ${used} ta reys, limit ${max}`}>
+                        <div className="text-xs mb-1"><b>{used}</b> <span className="text-muted-foreground">/ {max}</span></div>
+                        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div className={`h-full ${pct >= 100 ? 'bg-destructive' : 'bg-primary'}`} style={{ width: pct + '%' }} />
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </td>
+                <td className="py-2 pr-4">
+                  <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEdit(v)} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary" title="Tahrirlash"><Pencil size={14} /></button>
+                    <button onClick={() => handleDelete(v)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-secondary" title="O'chirish"><Trash2 size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
+
+  const chip = (active: boolean) => `px-3 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground hover:bg-secondary'}`
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -703,21 +764,58 @@ function VehiclesView() {
         </button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Faol mashinalar', value: `${activeCount} / ${vehicles.length}`, sub: `${bulkCount} ta sementovoz` },
+          { label: "Bir reysda sig'im", value: `${totalCapacity} t`, sub: 'faol mashinalar jami' },
+          { label: 'Bugungi reyslar', value: String(todayTrips), sub: 'TTN jurnali bo\'yicha' },
+          { label: 'Bugun tashildi', value: `${parseFloat(todayTons.toFixed(2))} t`, sub: 'yaratilgan TTNlar' },
+        ].map(t => (
+          <div key={t.label} className="border rounded-xl px-4 py-3 bg-background">
+            <div className="text-xs text-muted-foreground">{t.label}</div>
+            <div className="text-xl font-bold text-primary leading-tight">{t.value}</div>
+            <div className="text-[11px] text-muted-foreground">{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {noPinfl.length > 0 && (
+        <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-sm">
+          <span className="text-amber-600 font-bold">!</span>
+          <div>
+            <b className="text-amber-700">{noPinfl.length} ta faol mashinada haydovchi JShShIR (14 raqam) yo'q.</b>
+            <span className="text-muted-foreground"> ELEX importi uchun u majburiy, bunday mashinaga TTN yaratib bo'lmaydi: {noPinfl.slice(0, 5).map(v => v.plateNumber).join(', ')}{noPinfl.length > 5 ? ' ...' : ''}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button className={chip(statusFilter === 'all')} onClick={() => setStatusFilter('all')}>Hammasi ({vehicles.length})</button>
+          <button className={chip(statusFilter === 'active')} onClick={() => setStatusFilter('active')}>Faol ({activeCount})</button>
+          <button className={chip(statusFilter === 'inactive')} onClick={() => setStatusFilter('inactive')}>Nofaol ({vehicles.length - activeCount})</button>
+          <span className="w-px h-5 bg-border mx-1" />
+          <button className={chip(typeFilter === 'all')} onClick={() => setTypeFilter('all')}>Barcha turlar</button>
+          <button className={chip(typeFilter === 'bulk')} onClick={() => setTypeFilter('bulk')}>Sementovoz ({bulkCount})</button>
+          <button className={chip(typeFilter === 'bag')} onClick={() => setTypeFilter('bag')}>Qopli</button>
+          <button className={chip(typeFilter === 'any')} onClick={() => setTypeFilter('any')}>Universal</button>
+        </div>
+        <div className="text-xs text-muted-foreground">Faol jami sig'im: <b className="text-foreground">{totalCapacity} t</b> · bir reysda</div>
+      </div>
+
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Truck size={48} className="mx-auto mb-4 opacity-30" />
           <p>Mashinalar yo'q. "Mashina qo'shish" tugmasini bosing.</p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {ownVehicles.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                <Building2 size={14} /> Bizning park
+                <Building2 size={14} /> Bizning park <span className="font-normal normal-case">({ownVehicles.length})</span>
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {ownVehicles.map(v => <VehicleCard key={v.id} v={v} />)}
-              </div>
+              <VehicleTable list={ownVehicles} />
             </div>
           )}
           {Object.entries(clientGroups).map(([tin, vList]) => {
@@ -728,9 +826,7 @@ function VehiclesView() {
                   <Truck size={14} /> {customer?.name || `STIR: ${tin}`}
                   <span className="text-xs font-normal text-muted-foreground normal-case">(mijoz mashinasi)</span>
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {(vList as any[]).map(v => <VehicleCard key={v.id} v={v} />)}
-                </div>
+                <VehicleTable list={vList as any[]} />
               </div>
             )
           })}
@@ -740,6 +836,7 @@ function VehiclesView() {
       {showModal && (
         <VehicleModal
           vehicle={editing}
+          vehicles={vehicles}
           customers={customers}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); refetch() }}

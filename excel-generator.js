@@ -1,4 +1,5 @@
 const XLSX = require('xlsx');
+const { effectivePackaging } = require('./cargo-type');
 const path = require('path');
 const fs = require('fs');
 
@@ -64,244 +65,219 @@ function generateEttnExcel(invoice, allocations, unloadingAddressObj, settings) 
     invoice: invoice,
     vehicle: a.vehicle,
     quantityAllocated: a.quantityAllocated,
+    packaging: a.packaging,
     unloadingAddressObj: unloadingAddressObj
   }));
   
   return generateBulkEttnExcel(bulkAllocations, settings);
 }
 
+// SOATO kod -> nom (ELEX shabloni viloyat/tuman uchun nom yoki kod qabul qiladi)
+let _soato = null;
+function loadSoato() {
+  if (_soato) return _soato;
+  const candidates = [
+    path.join(__dirname, 'public', 'soato.json'),
+    path.join(__dirname, 'frontend', 'src', 'data', 'soato.json'),
+    path.join(__dirname, '..', 'public', 'soato.json'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) { _soato = JSON.parse(fs.readFileSync(p, 'utf8')); return _soato; }
+    } catch (e) { /* keyingisini sinaymiz */ }
+  }
+  _soato = [];
+  return _soato;
+}
+
+// Kod topilsa nom qaytaradi, topilmasa kodning o'zini
+function regionName(oblastCode) {
+  const o = loadSoato().find(r => String(r.code) === String(oblastCode));
+  return o ? o.name : (oblastCode ? String(oblastCode) : '');
+}
+function districtName(oblastCode, rayonCode) {
+  const o = loadSoato().find(r => String(r.code) === String(oblastCode));
+  const d = o && (o.districts || []).find(x => String(x.code) === String(rayonCode));
+  return d ? d.name : (rayonCode ? String(rayonCode) : '');
+}
+
+// ELEX sanasi: YYYY-MM-DD
+function formatIsoDate(dateStr) {
+  if (!dateStr) return '';
+  const s = String(dateStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ELEX ustunlari sarlavha matni bo'yicha topiladi (ustun tartibi o'zgarsa ham ishlaydi)
+const FIELD_HEADERS = {
+  seq: 'т/р №', number: 'ттн рақами', date: 'ттн санаси', type: 'ташув тури',
+  contractNo: 'шартнома №', contractDate: 'шартнома санаси', receiver: 'юк қабул қилувчи',
+  driver: 'ҳайдовчи жшшири', plate: 'машина давлат', trailer: 'тиркама', responsible: 'масъул шахс',
+  loadRegion: 'юклаш вилояти', loadDistrict: 'юклаш тумани', loadAddr: 'юклаш манзили',
+  unloadRegion: 'тушириш вилояти', unloadDistrict: 'тушириш тумани', unloadAddr: 'тушириш манзили',
+  distance: 'масофа', pricePerKm: '1 км нархи', product: 'товар номи', ikpu: 'икпу',
+  pack: 'код упаковки', qty: 'миқдор', price: 'нарх', gross: 'брутто', net: 'нетто',
+};
+const REQUIRED_FIELDS = ['seq', 'number', 'date', 'receiver', 'driver', 'plate', 'product', 'ikpu', 'qty', 'price'];
+
+function mapColumns(headerRow) {
+  const norm = (h) => String(h || '').toLowerCase().replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+  const heads = headerRow.map(norm);
+  const map = {};
+  for (const [key, text] of Object.entries(FIELD_HEADERS)) {
+    const idx = heads.findIndex(h => h.startsWith(text));
+    if (idx >= 0) map[key] = idx;
+  }
+  const missing = REQUIRED_FIELDS.filter(k => map[k] === undefined);
+  if (missing.length) {
+    throw new Error("Shablonda ustun topilmadi: " + missing.map(k => FIELD_HEADERS[k]).join(', ') + ". Shablon o'zgargan bo'lishi mumkin.");
+  }
+  return map;
+}
+
+// Excel yaratishdan oldin majburiy maydonlarni tekshirish
+function validateAllocations(bulkAllocations) {
+  const errors = [];
+  const digits = (v) => String(v || '').replace(/\D/g, '');
+  bulkAllocations.forEach((a) => {
+    const inv = a.invoice || {};
+    const v = a.vehicle || {};
+    const tag = `Faktura ${inv.invoiceNumber || '?'}`;
+    if (![9, 14].includes(digits(inv.buyerTin).length)) errors.push(`${tag}: xaridor STIR/JShShIR noto'g'ri (9 yoki 14 raqam)`);
+    if (digits(v.driverPinfl).length !== 14) errors.push(`${tag}: haydovchi JShShIR 14 raqam bo'lishi kerak (${v.plateNumber || 'mashina?'})`);
+    if (!String(v.plateNumber || '').trim()) errors.push(`${tag}: mashina davlat raqami yo'q`);
+    if (!inv.contractNumber || !inv.contractDate) errors.push(`${tag}: shartnoma raqami yoki sanasi yo'q`);
+    if (!(parseFloat(a.quantityAllocated) > 0)) errors.push(`${tag}: yuk miqdori noldan katta bo'lishi kerak`);
+    (inv.items || []).forEach((it) => {
+      if (digits(it.productMxik).length !== 17) errors.push(`${tag}: "${it.productName}" IKPU 17 raqam bo'lishi kerak`);
+    });
+  });
+  return [...new Set(errors)];
+}
+
 /**
- * Ko'plab fakturalar va mashina taqsimotlarini bitta umumiy Didox Excel shabloniga to'ldirish
- * 
- * @param {Array} bulkAllocations - Taqsimotlar ro'yxati [{ invoice, vehicle, quantityAllocated, unloadingAddressObj }]
- * @param {Object} settings - Tizim sozlamalari
- * @returns {Buffer} Excel fayli buferi
+ * Ko'plab fakturalar va mashina taqsimotlarini ELEX import shablonining "ТТН" varag'iga yozish.
+ * Shablon: ELEX-import-template.oz.xlsx — 1-qator sarlavha, 2-qator izoh, 3-qatordan ma'lumot.
+ * Faqat "ТТН" varag'i qoldiriladi (boshqa varaqlardagi namuna qatorlar hujjat bo'lib import qilinmasligi uchun).
  */
 function generateBulkEttnExcel(bulkAllocations, settings) {
   let baseDir = __dirname;
   if (__dirname.includes('app.asar')) {
     baseDir = path.join(__dirname, '..', '..');
   }
-  const templatePath = path.join(baseDir, 'didox_shablon.xlsx');
-  
-  let workbook;
-  let templateHeaderRows = [];
-
-  // 1. Shablon faylini o'qib, boshlang'ich 4 ta qatorni olish
-  if (fs.existsSync(templatePath)) {
-    try {
-      console.log('Loading Excel template from didox_shablon.xlsx...');
-      workbook = XLSX.readFile(templatePath);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
-      // Didox 5-qatordan o'qiydi: 3 sarlavha qatori + 1 bo'sh separator qatori kerak
-      templateHeaderRows = rows.slice(0, 3);
-      while (templateHeaderRows.length < 4) templateHeaderRows.push([]);
-    } catch (err) {
-      console.error('Error reading template workbook. Falling back to default generation:', err);
-    }
+  const templatePath = path.join(baseDir, 'ELEX-import-template.oz.xlsx');
+  if (!fs.existsSync(templatePath)) {
+    throw new Error('ELEX-import-template.oz.xlsx shablon fayli topilmadi: ' + templatePath);
   }
 
-  const newDataRows = [...templateHeaderRows];
+  const errors = validateAllocations(bulkAllocations);
+  if (errors.length) throw new Error("Ma'lumotlarda xatolar bor:\n- " + errors.join('\n- '));
 
-  // Agar shablon bo'sh bo'lsa yoki o'qishda xato bo'lsa, boshlang'ich sarlavha qatorlarini o'zimiz yasaymiz
-  if (newDataRows.length < 3) {
-    console.warn('Creating fallback basic header rows');
-    newDataRows[0] = ['п.п ТТН *', 'Тип перевозки *', 'Данные по ТТН'];
-    newDataRows[1] = [];
-    newDataRows[2] = [
-      'п.п ТТН *', 'Тип перевозки *', 'Номер ТТН *', 'Дата ТТН *', 'Номер контракта *', 'Дата контракта  *',
-      'ИНН/ПИНФЛ  Грузоотправителя *', 'Код филиала', 'ИНН/ПИНФЛ Грузополучателя *', 'Код филиала',
-      'ИНН/ПИНФЛ Экспедитора *', 'Код филиала', 'ИНН/ПИНФЛ Грузоперевозчика *', 'Код филиала',
-      'ИНН/ПИНФЛ/ПИНФЛ/ПИНФЛ Клиента *', 'Код филиала', 'Номер контракта', 'Дата контракта',
-      'ИНН/ПИНФЛ Заказчика *', 'Код филиала', 'Номер контракта', 'Дата контракта',
-      'Тип транспорта *', 'Гос. номер авто. *', 'Модель авто. *', 'Транспорт принадлежит, ИНН/ПИНФЛ',
-      'Гос. Номер полуприцепа', 'Модель полуприцепа', 'Гос. Номер прицепа', 'Модель прицепа',
-      'Водитель, ПИНФЛ *', 'Ответственное лицо, доставляющий груз, ПИНФЛ *', 'п.п Груза *',
-      'Область *', 'Район *', 'Улица, Дом *', 'Широта', 'Долгота',
-      'Ответственное лицо грузоотправителя, ПИНФЛ', 'Область *', 'Район *', 'Улица, Дом *',
-      'Широта', 'Долгота', 'Ответственное лицо грузополучателя, ПИНФЛ',
-      'Номер доверенности', 'От', 'До', 'ID доверенности', 'п.п Товаров *', 'ИНН/ПИНФЛ комитента',
-      'ИКПУ и наименование товаров (работ, услуг) *', 'Описание товаров (работ, услуг) *',
-      'Ед. изм *', 'Кол-vo *', 'Цена *', 'Сумма (без НДС) *', 'Брутto *', 'Нетто *',
-      'Общее расстояние *', 'Стоимость доставки за 1 км *', 'Стоимость доставки (в сумах) *'
-    ];
-    newDataRows[3] = []; // bo'sh separator qatori (Didox 5-qatordan o'qiydi)
-  }
+  const srcWb = XLSX.readFile(templatePath);
+  const sheetName = srcWb.SheetNames.find(n => n.toUpperCase().includes('ТТН') || n.toUpperCase().includes('TTN'));
+  if (!sheetName) throw new Error('Shablonda "ТТН" varag\'i topilmadi.');
+  const rows = XLSX.utils.sheet_to_json(srcWb.Sheets[sheetName], { header: 1, defval: '' });
+  const headerRows = rows.slice(0, 2); // sarlavha + izoh
+  const colMap = mapColumns(headerRows[0] || []);
+  const COLS = Math.max(...Object.values(colMap)) + 1;
+  const outRows = [...headerRows];
 
-  const senderTin = settings.senderTin || "305539899";
-  const senderName = settings.senderName || "SEMENT INSHAOT SAVDO MChJ";
-  const loadingAddress = settings.loadingAddress || "массив Янги Хаёт";
+  const loadingAddress = settings.loadingAddress || '';
+  const deliveryCostPerKm = parseFloat(settings.deliveryCostPerKm) || 1;
 
-  // ETTN qo'shimcha qiymatlari (Sozlamalardan, standart qiymat bilan)
-  const deliveryCostPerKm = parseFloat(settings.deliveryCostPerKm) || 1;     // Uchinchi tomon: 1 km narxi (so'm)
-  const expeditorTin = settings.expeditorTin || senderTin;                   // Ekspeditor STIR (bo'sh -> jo'natuvchi)
-  const unitCodes = settings.unitCodes || { tonna: 1629438 };                // Birlik nomi -> Didox kodi
-  const DEFAULT_UNIT_CODE = 1629438; // tonna
-
-  // PINFL (14 xonali) ni Excel da tekst formatda saqlash
-  const pinflCell = (val) => {
-    const str = String(val || '').trim();
-    if (!str || str === '0') return '';
-    return { t: 's', v: str };
+  // Matn sifatida saqlanadigan raqamlar (STIR/JShShIR) — scientific notation bo'lmasligi uchun
+  const txt = (val) => {
+    const str = String(val || '').replace(/\D/g, '');
+    return !str || str === '0' ? '' : { t: 's', v: str };
+  };
+  const isTonna = (item) => {
+    const n = String(item.unitName || 'tonna').trim().toLowerCase();
+    return n === 'tonna' || n === 'т' || n === 'тонна' || n === 't';
   };
 
-  // STIR (9 raqam) → raqam; PINFL (14 raqam) → tekst (scientific notation oldini olish)
-  const tinCell = (val) => {
-    const str = String(val || '').trim().replace(/\D/g, '');
-    if (!str || str === '0') return '';
-    if (str.length > 9) return { t: 's', v: str }; // PINFL — tekst
-    return Number(str) || '';                        // STIR — raqam
-  };
-
-  // Tovar birligi nomidan Didox birlik kodini aniqlash
-  const resolveUnitCode = (item) => {
-    if (item.unitCode) return Number(item.unitCode);
-    const name = String(item.unitName || '').trim().toLowerCase();
-    if (name && unitCodes[name]) return Number(unitCodes[name]);
-    return DEFAULT_UNIT_CODE;
-  };
-
-  // Har faktura uchun alohida tartib raqami, va fayldagi umumiy TTN hisoblagichi
   const invoiceAllocIndex = {};
-  let globalTtnSeq = 0; // п.п ТТН — butun fayl bo'yicha ketma-ket integer
+  let ttnSeq = 0;
 
-  // 3. Taqsimlangan yuklar asosida qatorlarni to'ldirish (Row 5 dan boshlab)
   bulkAllocations.forEach((alloc) => {
     const inv = alloc.invoice;
     const v = alloc.vehicle;
     const qty = alloc.quantityAllocated;
     const unloadingAddr = alloc.unloadingAddressObj || {};
 
-    // Har faktura uchun: INV001-1, INV001-2, INV002-1, INV002-2 ...
     const invKey = String(inv.id || inv.invoiceNumber);
-    if (!invoiceAllocIndex[invKey]) invoiceAllocIndex[invKey] = 0;
-    invoiceAllocIndex[invKey]++;
-    globalTtnSeq++;
+    invoiceAllocIndex[invKey] = (invoiceAllocIndex[invKey] || 0) + 1;
+    ttnSeq++;
     const ttnNumber = `${inv.invoiceNumber}-${invoiceAllocIndex[invKey]}`;
-    
-    // Faktura ichidagi tovarlarni olamiz (agar items massivi bo'lsa, aks holda fallback)
-    const items = inv.items && inv.items.length > 0 ? inv.items : [{
+
+    const allItems = inv.items && inv.items.length > 0 ? inv.items : [{
       productName: inv.productName || 'Sement',
       productMxik: inv.productMxik || '02523002001236004',
-      productBarcode: inv.productBarcode || '',
       unitName: inv.unitName || 'tonna',
       quantity: inv.quantity || qty,
       price: inv.price || 0,
-      vatRate: inv.vatRate || 0,
-      vatSum: inv.vatSum || 0,
-      totalSum: inv.totalSum || 0
     }];
+    // Reys qopli yoki sochma bo'lsa — faqat shu turdagi tovarlar TTNga kiradi
+    const wanted = alloc.packaging;
+    const filtered = (wanted === 'bag' || wanted === 'bulk')
+      ? allItems.filter(it => effectivePackaging(inv, it) === wanted)
+      : allItems;
+    const items = filtered.length > 0 ? filtered : allItems;
+    const groupQty = items.reduce((sum, it) => sum + (parseFloat(it.quantity) || 0), 0);
 
-    // Har bir tovar uchun alohida qator yaratamiz
+    const loadOblast = settings.loadingOblast || '1726';
+    const unloadOblast = unloadingAddr.oblastCode || '1726';
+    const distance = getOblastDistance(loadOblast, unloadOblast);
+    const isThirdParty = (v.vehicleOwnerType || 'own') === 'third_party';
+
     items.forEach((item, itemIdx) => {
-      // Tovar ulushi (proportional ratio)
-      const ratio = inv.quantity > 0 ? (item.quantity / inv.quantity) : (1 / items.length);
+      const ratio = groupQty > 0 ? (item.quantity / groupQty) : (1 / items.length);
       const itemQty = parseFloat((qty * ratio).toFixed(3));
-      const itemPrice = item.price || 0;
-      const itemSumWithoutVat = parseFloat((itemQty * itemPrice).toFixed(2));
+      const weightKg = isTonna(item) ? parseFloat((itemQty * 1000).toFixed(2)) : itemQty;
 
-      // 62 ta ustundan iborat qator (Array) yaratish
-      const row = new Array(62).fill('');
-
-      row[0] = globalTtnSeq; // п.п ТТН * — fayl bo'yicha ketma-ket integer
-      row[1] = 2; // Тип перевозки * (2 - Sotuvchidan xaridorga)
-      row[2] = ttnNumber; // Номер ТТН *
-      row[3] = formatDate(inv.invoiceDate); // Дата ТТН *
-      row[4] = inv.contractNumber || ''; // Номер контракта *
-      row[5] = formatDate(inv.contractDate); // Дата контракта  *
-      row[6] = tinCell(senderTin); // ИНН/ПИНФЛ Грузоотправителя *
-      row[7] = ''; // Код филиала (gruzootpravitel)
-      row[8] = tinCell(inv.buyerTin); // ИНН/ПИНФЛ  Гruzoполучателя *
-      row[9] = ''; // Код филиала (gruzopoluchatel)
-      row[10] = tinCell(expeditorTin) || tinCell(inv.buyerTin) || ''; // ИНН/ПИНФЛ Экспедитора *
-      row[11] = ''; // Код филиала (ekspeditor)
-      row[12] = tinCell(v.carrierTin) || tinCell(senderTin) || ''; // ИНН/ПИНФЛ Грузоперевозчика *
-      row[13] = ''; // Код филиала (gruzoperevozchik)
-      row[14] = ''; // ИНН/ПИНФЛ/ПИНФЛ Клиента
-      row[15] = ''; // Код филиала
-      row[16] = ''; // Номер контракта
-      row[17] = ''; // Дата контракта
-      row[18] = tinCell(inv.buyerTin); // ИНН/ПИНФЛ Заказчика *
-      row[19] = ''; // Код филиала
-      row[20] = ''; // Номер контракта
-      row[21] = ''; // Дата контракта
-      row[22] = 1; // Тип транспорта * (1 - avtomobil)
-      row[23] = v.plateNumber || ''; // Гос. номер авто. *
-      row[24] = v.vehicleModel || 'SHACMAN'; // Модель авто. *
-      // Transport egasi: har mashina uchun → sozlamadagi → jo'natuvchi STIR
-      const vehicleTransportOwnerTin = v.transportOwnerTin || settings.transportOwnerTin || senderTin;
-      row[25] = tinCell(vehicleTransportOwnerTin); // Транспорт принадлежит, ИНН/ПИНФЛ
-      row[26] = v.trailerPlate || ''; // Гос. Номер полуприцепа
-      row[27] = v.trailerModel || ''; // Модель полуприцепа
-      row[28] = ''; // Гос. Номер прицепа
-      row[29] = ''; // Модель прицепа
-      row[30] = pinflCell(v.driverPinfl); // Водитель, ПИНФЛ *
-      row[31] = pinflCell(v.driverPinfl); // Ответственное лицо, доставляющий груз, ПИНФЛ *
-      row[32] = invoiceAllocIndex[invKey]; // п.п Груза * (TTN tartib raqami)
-      
-      // Ortish manzili (Loading)
-      row[33] = Number(settings.loadingOblast) || 18; // slice: loadingOblast
-      row[34] = Number(settings.loadingRayon) || 13; // slice: loadingRayon
-      row[35] = loadingAddress; // Улица, Дом *
-      row[36] = ''; // Широта
-      row[37] = ''; //  Долгота
-      
-      row[38] = pinflCell(settings.senderResponsiblePinfl); // Ответственное лицо грузоотправителя, ПИНФЛ
-      
-      // Tushirish manzili (Delivery)
-      row[39] = Number(unloadingAddr.oblastCode) || 1726; // Область * (Yuk tushirish)
-      row[40] = Number(unloadingAddr.rayonCode) || 1; // Район *
-      row[41] = unloadingAddr.addressText || 'Mijoz manzili'; // Улица, Дом *
-      row[42] = ''; // Широта
-      row[43] = ''; // Долгота
-      
-      // Qabul qiluvchi mas'ul = haydovchi PINFL (yetkazib berishda haydovchi mas'ul)
-      row[44] = pinflCell(v.driverPinfl); // Ответственное лицо грузополучателя, ПИНФЛ
-      row[45] = ''; // Номер доверенности
-      row[46] = ''; // От
-      row[47] = ''; // До
-      row[48] = ''; // ID  доверенности
-      row[49] = itemIdx + 1; // п.п Товаров * (tovar qatori tartib raqami)
-      row[50] = ''; // ИНН/ПИНФЛ комитента
-      row[51] = item.productMxik || '02523002001236004'; // ИКПУ *
-      row[52] = item.productName || 'Sement'; // Описание товаров *
-      row[53] = resolveUnitCode(item); // Ед. изм * (birlik kodi — Sozlamalardagi unitCodes jadvalidan)
-      row[54] = itemQty; // Кол-vo *
-      row[55] = itemPrice; // Цена *
-      row[56] = itemSumWithoutVat; // Сумма (без НДС) *
-      row[57] = itemQty; // Брутто *
-      row[58] = itemQty; // Нетто *
-      // Masofa: yuklash viloyatidan tushirish viloyatigacha avtomatik
-      const autoDistance = getOblastDistance(settings.loadingOblast, unloadingAddr.oblastCode);
-      // Yetkazish narxi: korxona yoki mijoz mashinasi → 0; uchinchi tomon → masofa × narx
-      const ownerType = v.vehicleOwnerType || 'own';
-      const isThirdParty = ownerType === 'third_party';
-      const calcCostPerKm = isThirdParty ? deliveryCostPerKm : 0;
-      const calcCostTotal = isThirdParty ? parseFloat((autoDistance * deliveryCostPerKm).toFixed(2)) : 0;
-      row[59] = autoDistance;    // Общее расстояние *
-      row[60] = calcCostPerKm;   // Стоимость доставки за 1 км *
-      row[61] = calcCostTotal;   // Стоимость доставки (в сумах) *
-
-      newDataRows.push(row);
+      const row = new Array(COLS).fill('');
+      const set = (k, val) => { if (colMap[k] !== undefined) row[colMap[k]] = val; };
+      if (itemIdx === 0) {
+        // Sarlavha maydonlari faqat hujjatning birinchi qatorida
+        set('seq', ttnSeq);                                   // A Т/р №
+        set('number', ttnNumber);                                // B TTN raqami
+        set('date', formatIsoDate(inv.invoiceDate));           // C TTN sanasi
+        set('type', 2);                                        // D Ташув тури (sotuvchidan xaridorga)
+        set('contractNo', inv.contractNumber || '');                 // E Shartnoma №
+        set('contractDate', formatIsoDate(inv.contractDate));          // F Shartnoma sanasi
+        set('receiver', txt(inv.buyerTin));                        // G Qabul qiluvchi STIR
+        set('driver', txt(v.driverPinfl));                       // H Haydovchi JShShIR
+        set('plate', v.plateNumber || '');                      // I Mashina raqami
+        set('trailer', v.trailerPlate || '');                     // J Tirkama raqami
+        set('responsible', '');                                      // K Mas'ul shaxs (bo'sh = haydovchi)
+        set('loadRegion', regionName(loadOblast));                  // L Yuklash viloyati
+        set('loadDistrict', districtName(loadOblast, settings.loadingRayon)); // M Yuklash tumani
+        set('loadAddr', loadingAddress);                          // N Yuklash manzili
+        set('unloadRegion', regionName(unloadOblast));                // O Tushirish viloyati
+        set('unloadDistrict', districtName(unloadOblast, unloadingAddr.rayonCode)); // P Tushirish tumani
+        set('unloadAddr', unloadingAddr.addressText || '');         // Q Tushirish manzili
+        set('distance', distance);                                // R Masofa, km
+        set('pricePerKm', isThirdParty ? deliveryCostPerKm : 0);    // S 1 km narxi
+      }
+      set('product', item.productName || 'Sement');              // T Tovar nomi
+      set('ikpu', item.productMxik || '02523002001236004');   // U IKPU
+      set('pack', '');                                        // V Qadoq kodi (bo'sh = katalogdan)
+      set('qty', itemQty);                                   // W Miqdor
+      set('price', item.price || 0);                           // X Narx (birlik uchun)
+      set('gross', weightKg);                                  // Y Brutto, kg
+      set('net', weightKg);                                  // Z Netto, kg
+      outRows.push(row);
     });
   });
 
-  // 4. Excel sahifasini yangilash
-  const ws = XLSX.utils.aoa_to_sheet(newDataRows);
-
-  if (workbook) {
-    const sheetName = workbook.SheetNames[0];
-    workbook.Sheets[sheetName] = ws;
-  } else {
-    workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, ws, "Лист1");
-  }
-
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-  return buffer;
+  const ws = XLSX.utils.aoa_to_sheet(outRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
 module.exports = {

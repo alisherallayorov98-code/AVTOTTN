@@ -22,13 +22,15 @@ declare global {
       getSettings: () => Promise<any>;
       saveSettings: (settings: any) => Promise<any>;
       splitCargo: (totalQty: number, vehicleIds: string[]) => Promise<any>;
-      bulkSplit: (invoiceIds: string[]) => Promise<any>;
+      bulkSplit: (invoiceIds: string[], overrides?: any) => Promise<any>;
       generateExcel: (invoiceId: string, allocations: any[], address: any) => Promise<any>;
       bulkGenerateExcel: (allocations: any[], addresses: any) => Promise<any>;
       saveManualInvoice: (invoice: any) => Promise<any>;
       deleteManualInvoice: (id: string) => Promise<any>;
       extractPdfs: (buffer: ArrayBuffer) => Promise<any>;
       parsePdf: (buffer: ArrayBuffer) => Promise<any>;
+      getTtnReport: (from: string, to: string) => Promise<any>;
+      checkInvoiceDuplicates: (list: any[]) => Promise<any[]>;
       parsePdfsFromFolder: () => Promise<any>;
       backupCreate: () => Promise<any>;
       backupList: () => Promise<any[]>;
