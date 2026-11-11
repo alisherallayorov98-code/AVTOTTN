@@ -116,6 +116,7 @@ function saveData(data) {
     const tmp = target + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
     fs.renameSync(tmp, target);
+    _rev = Date.now() + Math.random();
     return true;
   } catch (err) {
     console.error('db.json yozishda xatolik:', err);
@@ -123,9 +124,18 @@ function saveData(data) {
   }
 }
 
+// Har bir mijoz o'z kompaniyasi bilan ishlashi uchun: so'rov davomida profilni vaqtincha almashtirish
+let _profileOverride = null;
+let _rev = Date.now(); // har yozishda o'zgaradi — boshqa foydalanuvchilar yangilanganini bilishi uchun
+function withProfile(profileId, fn) {
+  const prev = _profileOverride;
+  _profileOverride = profileId || null;
+  try { return fn(); } finally { _profileOverride = prev; }
+}
+
 function current() {
   const data = getData();
-  let id = data.currentProfile;
+  let id = (_profileOverride && data.profiles[_profileOverride]) ? _profileOverride : data.currentProfile;
   let profile = data.profiles[id];
   if (!profile) {
     id = Object.keys(data.profiles)[0];
@@ -142,11 +152,13 @@ function save(data, profile) {
 }
 
 module.exports = {
+  withProfile,
+  getRev: () => _rev,
   // ─── Profil boshqaruvi ───────────────────────────────────────────────────────
   getProfiles: () => {
     const data = getData();
     return {
-      currentId: data.currentProfile,
+      currentId: (_profileOverride && data.profiles[_profileOverride]) ? _profileOverride : data.currentProfile,
       list: Object.values(data.profiles).map(p => ({ id: p.id, name: p.name }))
     };
   },

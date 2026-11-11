@@ -44,7 +44,8 @@ declare global {
       networkServerStart: (port?: number) => Promise<any>;
       networkServerStop: () => Promise<any>;
       networkServerStatus: () => Promise<any>;
-      networkTestConnection: (ip: string, port?: number) => Promise<any>;
+      networkTestConnection: (ip: string, port?: number, key?: string) => Promise<any>;
+      getDbRev: () => Promise<any>;
     };
   }
 }
@@ -53,8 +54,8 @@ export function useVehicles() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchVehicles = async () => {
-    setLoading(true);
+  const fetchVehicles = async (silent: any = false) => {
+    if (silent !== true) setLoading(true);
     try {
       const data = await window.api.getVehicles();
       setVehicles(data || []);
@@ -67,6 +68,10 @@ export function useVehicles() {
 
   useEffect(() => {
     fetchVehicles();
+    // Boshqa foydalanuvchi o'zgartirish kiritsa — jimgina yangilanadi
+    const onChanged = () => fetchVehicles(true);
+    window.addEventListener('db-changed', onChanged);
+    return () => window.removeEventListener('db-changed', onChanged);
   }, []);
 
   return { vehicles, loading, refetch: fetchVehicles };
@@ -77,8 +82,8 @@ export function useInvoices() {
   const [isMock, setIsMock] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchInvoices = async () => {
-    setLoading(true);
+  const fetchInvoices = async (silent: any = false) => {
+    if (silent !== true) setLoading(true);
     try {
       const data = await window.api.getInvoices();
       setInvoices(data.invoices || []);
@@ -92,6 +97,10 @@ export function useInvoices() {
 
   useEffect(() => {
     fetchInvoices();
+    // Boshqa foydalanuvchi o'zgartirish kiritsa — jimgina yangilanadi
+    const onChanged = () => fetchInvoices(true);
+    window.addEventListener('db-changed', onChanged);
+    return () => window.removeEventListener('db-changed', onChanged);
   }, []);
 
   return { invoices, isMock, loading, refetch: fetchInvoices };
@@ -101,8 +110,8 @@ export function useCustomers() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchCustomers = async () => {
-    setLoading(true);
+  const fetchCustomers = async (silent: any = false) => {
+    if (silent !== true) setLoading(true);
     try {
       const data = await window.api.getCustomers();
       setCustomers(data || []);
@@ -115,6 +124,10 @@ export function useCustomers() {
 
   useEffect(() => {
     fetchCustomers();
+    // Boshqa foydalanuvchi o'zgartirish kiritsa — jimgina yangilanadi
+    const onChanged = () => fetchCustomers(true);
+    window.addEventListener('db-changed', onChanged);
+    return () => window.removeEventListener('db-changed', onChanged);
   }, []);
 
   return { customers, loading, refetch: fetchCustomers };

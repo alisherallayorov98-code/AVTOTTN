@@ -61,8 +61,8 @@ function reportToXlsx(report, from, to) {
   add('Mashinalar', [['Davlat raqami', 'Reys', 'Tonna'], ...report.byVehicle.map((v) => [v.plateNumber, v.trips, v.tons])]);
   add('Mijozlar', [['STIR', 'Mijoz', 'Reys', 'Tonna'], ...report.byBuyer.map((b) => [b.buyerTin, b.buyerName, b.trips, b.tons])]);
   add('Reyslar', [
-    ['Sana', 'Faktura', 'Mijoz', 'STIR', 'Mashina', 'Yuk turi', 'Tonna'],
-    ...report.rows.map((r) => [r.date, r.invoiceNumber, r.buyerName, r.buyerTin, r.plateNumber, TYPE_LABEL[r.packaging] || r.packaging, r.quantity]),
+    ['Sana', 'Faktura', 'Mijoz', 'STIR', 'Mashina', 'Yuk turi', 'Tonna', 'Kim yaratdi'],
+    ...report.rows.map((r) => [r.date, r.invoiceNumber, r.buyerName, r.buyerTin, r.plateNumber, TYPE_LABEL[r.packaging] || r.packaging, r.quantity, r.createdBy || '']),
   ]);
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }

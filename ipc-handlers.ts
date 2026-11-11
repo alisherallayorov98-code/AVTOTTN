@@ -38,6 +38,7 @@ function getDb() {
     getWrittenInvoiceIds:   () => Promise.resolve(dbMethods.getWrittenInvoiceIds()),
     markInvoiceAsWritten:   (id: string) => Promise.resolve(dbMethods.markInvoiceAsWritten(id)),
     unmarkInvoiceAsWritten: (id: string) => Promise.resolve(dbMethods.unmarkInvoiceAsWritten(id)),
+    getRev:                 () => Promise.resolve(dbMethods.getRev()),
     addTtnLog:              (e: any[]) => Promise.resolve(dbMethods.addTtnLog(e)),
     getTtnLog:              () => Promise.resolve(dbMethods.getTtnLog()),
   };
@@ -53,6 +54,7 @@ async function logTtns(list: any[]) {
       invoiceNumber: a.invoice?.invoiceNumber,
       buyerTin: a.invoice?.buyerTin,
       buyerName: a.invoice?.buyerName,
+      createdBy: netConfig.get().userName || require('os').hostname(),
       packaging: a.packaging || 'any',
       vehicleId: a.vehicle?.id,
       plateNumber: a.vehicle?.plateNumber,
@@ -154,6 +156,8 @@ export function registerIpcHandlers() {
     netConfig.save(cfg);
     return { ok: true };
   });
+  // Boshqa foydalanuvchilar o'zgartirish kiritganini bilish uchun (har bir yozishda o'zgaradi)
+  ipcMain.handle('get-db-rev', async () => { try { return await getDb().getRev(); } catch { return null; } });
   ipcMain.handle('network-get-ips', () => localServer.getLocalIps());
   ipcMain.handle('network-server-start', async (_: any, port: number) => {
     return localServer.startServer(port || 3737);
@@ -166,10 +170,11 @@ export function registerIpcHandlers() {
     ips: localServer.getLocalIps(),
     port: netConfig.get().serverPort || 3737
   }));
-  ipcMain.handle('network-test-connection', async (_: any, serverIp: string, port: number) => {
+  ipcMain.handle('network-test-connection', async (_: any, serverIp: string, port: number, key?: string) => {
     try {
-      const remote = createRemoteDb(serverIp, port || 3737);
+      const remote = createRemoteDb(serverIp, port || 3737, key || '');
       const result = await remote.ping();
+      await remote.authCheck(); // kalit noto'g'ri bo'lsa shu yerda xato beradi
       return { ok: true, ...result };
     } catch (e: any) {
       return { ok: false, message: e.message };
@@ -482,7 +487,8 @@ export function registerIpcHandlers() {
   ipcMain.handle('check-invoice-duplicates', async (_: any, parsedList: any[]) => {
     const { classifyInvoices } = require('./invoice-dedupe');
     const db = getDb();
-    const existing = await db.getManualInvoices();
+    let existing = await db.getManualInvoices();
+    try { existing = [...existing, ...((await db1Uz.getInvoices()).invoices || [])]; } catch { /* 1Uz ulanmagan bo'lsa faqat qo'lda yuklanganlar */ }
     const written = await db.getWrittenInvoiceIds();
     return classifyInvoices(parsedList || [], existing, written);
   });

@@ -5,6 +5,9 @@ const DEFAULTS = {
   networkMode: 'local', // 'local' | 'server' | 'client'
   serverIp: '',
   serverPort: 3737,
+  accessKey: '',     // server va mijozlar uchun umumiy kirish kaliti
+  userName: '',      // shu kompyuter foydalanuvchisi (jurnalda ko'rinadi)
+  clientProfile: '', // mijoz rejimida shu kompyuter tanlagan kompaniya
 };
 
 function getConfigPath() {
@@ -32,4 +35,17 @@ function save(cfg) {
   return true;
 }
 
-module.exports = { get, save, DEFAULTS };
+function generateKey() {
+  return require('crypto').randomBytes(6).toString('hex'); // 12 belgi
+}
+
+// Server uchun kalit bo'lmasa — yaratib saqlaydi
+function ensureAccessKey() {
+  const cfg = get();
+  if (cfg.accessKey) return cfg.accessKey;
+  const accessKey = generateKey();
+  save({ ...cfg, accessKey });
+  return accessKey;
+}
+
+module.exports = { get, save, DEFAULTS, generateKey, ensureAccessKey };

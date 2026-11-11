@@ -110,7 +110,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
   const addAlloc = (invId: string) => {
     const inv = invById(invId)
     const mine = allocations.filter(x => x.invoiceId === invId)
-    const packaging = mine[mine.length - 1]?.packaging || 'any'
+    const packaging = mine[mine.length - 1]?.packaging || remaining.find((r: any) => r.invoiceId === invId)?.packaging || 'any'
     const v = vehicles.find((x: any) => fits(x, packaging))
     if (!v) return toast("Mos mashina topilmadi", 'error')
     const left = Math.max(0, (parseFloat(inv?.quantity) || 0) - mine.reduce((s, x) => s + (parseFloat(x.quantity) || 0), 0))
@@ -185,7 +185,7 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
             </div>
           ) : (
             <>
-              {Object.keys(grouped).length === 0 ? (
+              {Object.keys(grouped).length === 0 && vehicles.filter((v: any) => v.isActive !== false).length === 0 ? (
                 <p className="text-center text-muted-foreground py-10">Taqsimlash uchun faol mashina topilmadi. Mashinalar bo'limini tekshiring.</p>
               ) : Object.entries(grouped).map(([invId, allocs]: any) => {
                 const inv = invById(invId)
@@ -258,6 +258,24 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                         </div>
                       )
                     })()}
+                  </div>
+                )
+              })}
+
+              {invoices.filter((i: any) => !grouped[i.id]).map((inv: any) => {
+                const rem = remaining.find((r: any) => r.invoiceId === inv.id)
+                return (
+                  <div key={inv.id} className="border border-amber-500/40 rounded-xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-amber-500/10 flex justify-between items-center">
+                      <span className="font-medium text-sm">№ {inv.invoiceNumber} · {inv.buyerName}</span>
+                      <span className="text-xs text-muted-foreground">{inv.quantity} t</span>
+                    </div>
+                    <div className="px-4 py-3 flex items-center justify-between text-sm">
+                      <span className="text-amber-700">
+                        Taqsimlanmadi{rem?.reason === 'no_vehicle' ? ' — mos mashina yo\'q (sementovoz kerak?)' : rem?.reason === 'trip_limit' ? ' — mashinalar reys limiti to\'ldi' : ''}
+                      </span>
+                      <button onClick={() => addAlloc(inv.id)} className="text-primary hover:underline">+ Reys qo'shish</button>
+                    </div>
                   </div>
                 )
               })}

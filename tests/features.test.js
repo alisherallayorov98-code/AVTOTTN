@@ -34,3 +34,20 @@ test('jurnal hisoboti: tur, mashina, mijoz, sana oralig\'i', () => {
   assert.strictEqual(day.byBuyer.length, 1);
   assert.strictEqual(day.byBuyer[0].tons, 30);
 });
+
+test('davlat raqami ELEX formatiga keltiriladi', () => {
+  const { normalizePlate } = require('../excel-generator');
+  assert.strictEqual(normalizePlate('30156UBA'), '30 156 UBA');
+  assert.strictEqual(normalizePlate('01a123bc'), '01 A 123 BC');
+  assert.strictEqual(normalizePlate('01 A 123 BC'), '01 A 123 BC');
+  assert.strictEqual(normalizePlate('XYZ'), 'XYZ');
+  assert.strictEqual(normalizePlate(''), '');
+});
+
+test('1Uz faktura bilan takror: STIR+raqam+sana', () => {
+  const { classifyInvoices } = require('../invoice-dedupe');
+  const uz = [{ id: 'uz_1', buyerTin: '305123456', invoiceNumber: '15', invoiceDate: '2026-05-19' }];
+  const r = classifyInvoices([{ roamingId: 'abc', buyerTin: '305123456', invoiceNumber: '15', invoiceDate: '2026-05-19' }], uz, []);
+  assert.strictEqual(r[0].status, 'pending');
+  assert.strictEqual(r[0].existingId, 'uz_1');
+});

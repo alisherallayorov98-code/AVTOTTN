@@ -101,6 +101,16 @@ function districtName(oblastCode, rayonCode) {
   return d ? d.name : (rayonCode ? String(rayonCode) : '');
 }
 
+// Davlat raqamini ELEX formatiga keltirish: 01A123BC -> "01 A 123 BC", 30156UBA -> "30 156 UBA"
+function normalizePlate(raw) {
+  const p = String(raw || '').replace(/\s+/g, '').toUpperCase();
+  let m = p.match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/);
+  if (m) return `${m[1]} ${m[2]} ${m[3]} ${m[4]}`;
+  m = p.match(/^(\d{2})(\d{3})([A-Z]{3})$/);
+  if (m) return `${m[1]} ${m[2]} ${m[3]}`;
+  return String(raw || '').trim();
+}
+
 // ELEX sanasi: YYYY-MM-DD
 function formatIsoDate(dateStr) {
   if (!dateStr) return '';
@@ -251,8 +261,8 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
         set('contractDate', formatIsoDate(inv.contractDate));          // F Shartnoma sanasi
         set('receiver', txt(inv.buyerTin));                        // G Qabul qiluvchi STIR
         set('driver', txt(v.driverPinfl));                       // H Haydovchi JShShIR
-        set('plate', v.plateNumber || '');                      // I Mashina raqami
-        set('trailer', v.trailerPlate || '');                     // J Tirkama raqami
+        set('plate', normalizePlate(v.plateNumber));                      // I Mashina raqami
+        set('trailer', normalizePlate(v.trailerPlate));                     // J Tirkama raqami
         set('responsible', '');                                      // K Mas'ul shaxs (bo'sh = haydovchi)
         set('loadRegion', regionName(loadOblast));                  // L Yuklash viloyati
         set('loadDistrict', districtName(loadOblast, settings.loadingRayon)); // M Yuklash tumani
@@ -281,6 +291,7 @@ function generateBulkEttnExcel(bulkAllocations, settings) {
 }
 
 module.exports = {
+  normalizePlate,
   generateEttnExcel,
   generateBulkEttnExcel
 };

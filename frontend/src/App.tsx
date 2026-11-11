@@ -37,6 +37,23 @@ function App() {
   const [newProfileName, setNewProfileName] = useState('')
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
+  // Tarmoq rejimida: boshqa foydalanuvchilar o'zgartirish kiritganini har 4 soniyada tekshiramiz
+  useEffect(() => {
+    let timer: any
+    let lastRev: any = null
+    let stopped = false
+    window.api.networkGetConfig().then((cfg: any) => {
+      if (stopped || !cfg || cfg.networkMode === 'local') return
+      timer = setInterval(async () => {
+        const rev = await window.api.getDbRev()
+        if (rev == null) return
+        if (lastRev !== null && rev !== lastRev) window.dispatchEvent(new Event('db-changed'))
+        lastRev = rev
+      }, 4000)
+    }).catch(() => {})
+    return () => { stopped = true; if (timer) clearInterval(timer) }
+  }, [])
+
   const [restoreCandidate, setRestoreCandidate] = useState<any>(null)
   const [restoring, setRestoring] = useState(false)
 
@@ -1262,7 +1279,7 @@ function NetworkSection() {
     if (!cfg.serverIp) return
     setTesting(true); setTestResult(null)
     try {
-      const res = await window.api.networkTestConnection(cfg.serverIp, cfg.serverPort || 3737)
+      const res = await window.api.networkTestConnection(cfg.serverIp, cfg.serverPort || 3737, cfg.accessKey || '')
       setTestResult(res)
     } catch (e: any) { setTestResult({ ok: false, message: e.message }) }
     finally { setTesting(false) }
@@ -1296,6 +1313,34 @@ function NetworkSection() {
           {modeBtn('server', '📡 Server', 'Baza shu yerda, boshqalar ulanadi')}
           {modeBtn('client', '🔗 Mijoz', 'Serverga ulanib ishlaydi')}
         </div>
+
+        {cfg.networkMode !== 'local' && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Foydalanuvchi nomi (hisobotda ko'rinadi)</label>
+              <input type="text" placeholder="Masalan: Dilshod" value={cfg.userName || ''}
+                onChange={e => setCfg((p: any) => ({ ...p, userName: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5 text-muted-foreground">
+                Kirish kaliti {cfg.networkMode === 'server' ? '(mijozlarga bering)' : '(serverdagi kalit)'}
+              </label>
+              <div className="flex gap-2">
+                <input type="text" placeholder={cfg.networkMode === 'server' ? 'Server ishga tushganda avtomatik yaratiladi' : 'Serverdagi kalitni kiriting'}
+                  value={cfg.accessKey || ''} onChange={e => { setCfg((p: any) => ({ ...p, accessKey: e.target.value.trim() })); setTestResult(null) }}
+                  className={inputCls + ' font-mono'} />
+                {cfg.networkMode === 'server' && (
+                  <button type="button" title="Yangi kalit yaratish"
+                    onClick={() => setCfg((p: any) => ({ ...p, accessKey: Array.from(crypto.getRandomValues(new Uint8Array(6))).map(b => b.toString(16).padStart(2, '0')).join('') }))}
+                    className="px-3 text-sm rounded-md border hover:bg-secondary shrink-0">Yangi</button>
+                )}
+              </div>
+              {cfg.networkMode === 'server' && cfg.accessKey && (
+                <p className="text-xs text-muted-foreground mt-1">Kalitni o'zgartirsangiz, "Saqlash" ni bosing va mijozlarga yangi kalitni bering.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Server rejimi */}
         {cfg.networkMode === 'server' && (

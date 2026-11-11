@@ -24,7 +24,8 @@ contextBridge.exposeInMainWorld('api', {
   networkServerStart: (port) => ipcRenderer.invoke('network-server-start', port),
   networkServerStop: () => ipcRenderer.invoke('network-server-stop'),
   networkServerStatus: () => ipcRenderer.invoke('network-server-status'),
-  networkTestConnection: (ip, port) => ipcRenderer.invoke('network-test-connection', ip, port),
+  networkTestConnection: (ip, port, key) => ipcRenderer.invoke('network-test-connection', ip, port, key),
+  getDbRev: () => ipcRenderer.invoke('get-db-rev'),
 
   // Profil boshqaruvi
   getProfiles: () => ipcRenderer.invoke('get-profiles'),

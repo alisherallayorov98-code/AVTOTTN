@@ -1,6 +1,8 @@
 const express = require('express');
 const os = require('os');
 const db = require('./db');
+const netConfig = require('./network-config');
+const crypto = require('crypto');
 
 let serverInstance = null;
 const DEFAULT_PORT = 3737;
@@ -24,17 +26,22 @@ function startServer(port) {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
 
-  app.use((_req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    if (_req.method === 'OPTIONS') return res.sendStatus(200);
+  // Kirish kaliti: /api/* faqat to'g'ri kalit bilan ishlaydi (CORS yo'q — brauzerdan kirish yopiq)
+  netConfig.ensureAccessKey();
+  const sameKey = (given) => {
+    const a = Buffer.from(String(given || ''));
+    const b = Buffer.from(String(netConfig.get().accessKey || ''));
+    return b.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+  app.use('/api', (req, res, next) => {
+    if (!sameKey(req.headers['x-access-key'])) return res.status(401).json({ error: "Kirish kaliti noto'g'ri" });
     next();
   });
 
   const route = (fn) => async (req, res) => {
     try {
-      const result = await fn(req);
+      // Har bir mijoz o'z kompaniyasi (x-profile) bilan ishlaydi
+      const result = await db.withProfile(req.headers['x-profile'], () => fn(req));
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: e.message });
@@ -47,6 +54,9 @@ function startServer(port) {
     version: (() => { try { return require('./package.json').version; } catch (_) { return '?'; } })(),
     ips: getLocalIps()
   })));
+
+  app.get('/api/auth-check', route(() => ({ ok: true })));
+  app.get('/api/rev',        route(() => ({ rev: db.getRev() })));
 
   // Profiles
   app.get('/api/profiles',            route(() => db.getProfiles()));

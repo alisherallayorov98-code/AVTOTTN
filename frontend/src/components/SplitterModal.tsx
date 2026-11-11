@@ -122,7 +122,7 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
     } else {
       setSelectedVehicles(prev => [...prev, v])
       // Avtomatik taqsimlash
-      setAllocations(prev => [...prev, { vehicleId: v.id, quantity: v.maxCapacity, tripIndex: 1 }])
+      setAllocations(prev => [...prev, { vehicleId: v.id, quantity: v.maxCapacity, tripIndex: 1, packaging: v.cargoType === 'bulk' ? 'bulk' : (prev.find((a: any) => a.packaging && a.packaging !== 'bulk')?.packaging || 'any') }])
     }
   }
 
