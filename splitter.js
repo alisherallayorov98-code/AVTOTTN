@@ -11,12 +11,13 @@
  */
 const { vehicleFits, packagingGroups } = require('./cargo-type');
 const cap = (v) => { const c = parseFloat(v.maxCapacity); return c > 0 ? c : 0; };
+const { localDate } = require('./local-date');
 const round3 = (n) => parseFloat(n.toFixed(3));
 
 // Mashina bugun ishlay oladimi: faol va "ta'mirda" (pausedUntil) muddati o'tgan
 function isAvailable(v, today) {
   if (v.isActive === false) return false;
-  const day = today || new Date().toISOString().slice(0, 10);
+  const day = today || localDate();
   return !(v.pausedUntil && String(v.pausedUntil) >= day);
 }
 

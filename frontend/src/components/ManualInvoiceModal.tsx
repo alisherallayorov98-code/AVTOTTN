@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { X, FileText, Plus, Trash2, Search, Loader2 } from 'lucide-react'
 import { toast } from './Toast'
+import { localDate } from '../localDate'
 
 const emptyItem = () => ({ productName: '', productMxik: '', unitName: 'tonna', quantity: 0, price: 0, vatRate: 12 })
 
 export function ManualInvoiceModal({ invoice, onClose, onSaved }: any) {
   const [form, setForm] = useState<any>(() => invoice ? { ...invoice } : {
-    invoiceNumber: '', invoiceDate: new Date().toISOString().slice(0, 10),
+    invoiceNumber: '', invoiceDate: localDate(),
     buyerTin: '', buyerName: '', contractNumber: '', contractDate: '',
     items: [emptyItem()],
   })

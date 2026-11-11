@@ -163,11 +163,11 @@ module.exports = {
     };
   },
 
-  createProfile: (name) => {
+  createProfile: (name, makeCurrent = true) => {
     const data = getData();
     const id = 'p_' + Date.now();
     data.profiles[id] = makeEmptyProfile(id, name || 'Yangi kompaniya');
-    data.currentProfile = id;
+    if (makeCurrent) data.currentProfile = id;
     saveData(data);
     return { id, name: data.profiles[id].name };
   },

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X, BarChart3, Loader2, Download } from 'lucide-react'
 import { toast } from './Toast'
+import { localDate } from '../localDate'
 
 const TYPE_LABEL: any = { bag: 'Qopli sement', bulk: 'Sochma sement (sementovoz)', any: 'Turi belgilanmagan' }
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localDate()
 
 export function CargoReportModal({ onClose }: any) {
   const [from, setFrom] = useState(today())

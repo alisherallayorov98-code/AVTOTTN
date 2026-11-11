@@ -6,6 +6,7 @@ import { VehicleModal } from './components/VehicleModal'
 import { PdfImportModal } from './components/PdfImportModal'
 import { BulkDispatchModal } from './components/BulkDispatchModal'
 import { CargoReportModal } from './components/CargoReportModal'
+import { localDate } from './localDate'
 import { Toaster, toast } from './components/Toast'
 import { RegionDistrictPicker } from './components/RegionDistrictPicker'
 
@@ -624,7 +625,7 @@ function VehiclesView() {
 
   // Bugungi yuklanish: TTN jurnalidan har bir mashina bo'yicha reys va tonna
   useEffect(() => {
-    const d = new Date().toISOString().slice(0, 10)
+    const d = localDate()
     window.api.getTtnReport(d, d)
       .then((r: any) => {
         const map: any = {}
@@ -647,7 +648,7 @@ function VehiclesView() {
     .filter(v => typeFilter === 'all' || (v.cargoType || 'any') === typeFilter)
     .sort((a, b) => String(a.plateNumber || '').localeCompare(String(b.plateNumber || '')))
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = localDate()
   const isWorking = (v: any) => v.isActive !== false && !(v.pausedUntil && String(v.pausedUntil) >= todayStr)
   const activeCount = vehicles.filter(isWorking).length
   const totalCapacity = vehicles.filter(isWorking).reduce((sum, v) => sum + (parseFloat(v.maxCapacity) || 0), 0)
@@ -724,7 +725,7 @@ function VehiclesView() {
                 <td className="py-2 px-3">
                   <div className="font-bold leading-tight">{v.plateNumber}</div>
                   <div className="text-xs text-muted-foreground">{v.vehicleModel || '—'}</div>
-                  {v.pausedUntil && String(v.pausedUntil) >= new Date().toISOString().slice(0, 10) && (
+                  {v.pausedUntil && String(v.pausedUntil) >= localDate() && (
                     <div className="text-[11px] text-amber-600">Ta'mirda · {v.pausedUntil} gacha</div>
                   )}
                 </td>

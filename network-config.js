@@ -11,6 +11,7 @@ const DEFAULTS = {
 };
 
 function getConfigPath() {
+  if (process.env.AVTO_NETCFG_PATH) return process.env.AVTO_NETCFG_PATH; // testlar uchun
   try {
     const { app } = require('electron');
     if (app && typeof app.getPath === 'function') {

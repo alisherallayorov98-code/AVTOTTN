@@ -52,7 +52,6 @@ function startServer(port) {
   app.get('/ping', route(() => ({
     ok: true,
     version: (() => { try { return require('./package.json').version; } catch (_) { return '?'; } })(),
-    ips: getLocalIps()
   })));
 
   app.get('/api/auth-check', route(() => ({ ok: true })));
@@ -60,7 +59,7 @@ function startServer(port) {
 
   // Profiles
   app.get('/api/profiles',            route(() => db.getProfiles()));
-  app.post('/api/profiles/create',    route(req => db.createProfile(req.body.name)));
+  app.post('/api/profiles/create',    route(req => db.createProfile(req.body.name, false)));
   app.post('/api/profiles/switch',    route(req => db.switchProfile(req.body.id)));
   app.post('/api/profiles/rename',    route(req => db.renameProfile(req.body.id, req.body.name)));
   app.delete('/api/profiles/:id',     route(req => db.deleteProfile(req.params.id)));

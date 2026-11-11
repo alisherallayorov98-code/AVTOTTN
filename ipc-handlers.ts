@@ -12,6 +12,7 @@ const backup = require('./backup');
 const localServer = require('./local-server');
 const { createRemoteDb } = require('./remote-db');
 const netConfig = require('./network-config');
+const { localDate } = require('./local-date');
 
 // ─── DB proxy: lokal yoki remote ────────────────────────────────────────────
 function getDb() {
@@ -47,7 +48,7 @@ function getDb() {
 // TTN jurnali: qopli/sochma hisobi uchun har bir reysni yozib boramiz
 async function logTtns(list: any[]) {
   try {
-    const date = new Date().toISOString().slice(0, 10);
+    const date = localDate();
     await getDb().addTtnLog(list.map((a: any) => ({
       date,
       invoiceId: a.invoice?.id,
@@ -297,7 +298,7 @@ export function registerIpcHandlers() {
       .map((inv: any) => (overrides && overrides[inv.id] ? { ...inv, packaging: overrides[inv.id] } : inv));
     const fleet = await db.getVehicles();
     // Bugungi bajarilgan reyslar (shu fakturalarning o'zi qayta taqsimlansa, hisobga olinmaydi)
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDate();
     const log = await db.getTtnLog();
     const skip = new Set(invoiceIds);
     const initialTrips: any = {};
