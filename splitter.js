@@ -13,8 +13,15 @@ const { vehicleFits, packagingGroups } = require('./cargo-type');
 const cap = (v) => { const c = parseFloat(v.maxCapacity); return c > 0 ? c : 0; };
 const round3 = (n) => parseFloat(n.toFixed(3));
 
+// Mashina bugun ishlay oladimi: faol va "ta'mirda" (pausedUntil) muddati o'tgan
+function isAvailable(v, today) {
+  if (v.isActive === false) return false;
+  const day = today || new Date().toISOString().slice(0, 10);
+  return !(v.pausedUntil && String(v.pausedUntil) >= day);
+}
+
 function autoSplit(totalQuantity, vehicles, packaging = 'any') {
-  const active = vehicles.filter(v => v.isActive !== false && cap(v) > 0 && vehicleFits(v, packaging));
+  const active = vehicles.filter(v => isAvailable(v) && cap(v) > 0 && vehicleFits(v, packaging));
   if (totalQuantity <= 0 || active.length === 0) {
     return { allocations: [], remaining: totalQuantity };
   }
@@ -62,8 +69,8 @@ function autoSplit(totalQuantity, vehicles, packaging = 'any') {
  *
  * Misol: 50 faktura, 4 mashina → har bir mashina ~12-13 reys (1 mashina 30, boshqasi 5 reys emas)
  */
-function bulkAutoDispatch(invoices, fleet) {
-  const active = fleet.filter(v => v.isActive !== false && cap(v) > 0);
+function bulkAutoDispatch(invoices, fleet, initialTrips = {}, today) {
+  const active = fleet.filter(v => isAvailable(v, today) && cap(v) > 0);
 
   if (invoices.length === 0 || active.length === 0) {
     return {
@@ -74,7 +81,8 @@ function bulkAutoDispatch(invoices, fleet) {
 
   // Har bir mashina uchun bajarilgan reyslar soni
   const tripCount = {};
-  for (const v of active) tripCount[v.id] = 0;
+  // Bugun allaqachon bajarilgan reyslar hisobga olinadi (limit kun bo'yicha)
+  for (const v of active) tripCount[v.id] = parseInt(initialTrips[v.id]) || 0;
 
   const allocations = [];
   const remainingInvoices = [];
@@ -134,4 +142,4 @@ function bulkAutoDispatch(invoices, fleet) {
   return { allocations, remainingInvoices };
 }
 
-module.exports = { autoSplit, bulkAutoDispatch };
+module.exports = { autoSplit, bulkAutoDispatch, isAvailable };

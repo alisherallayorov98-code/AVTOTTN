@@ -134,6 +134,16 @@ export function VehicleModal({ vehicle, onClose, onSaved, customers = [], vehicl
             <h3 className="font-semibold mb-3 text-sm text-primary uppercase tracking-wide">Mashina egaligi va transport egasi</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Ta'mirda / dam olishda (shu sanagacha)</label>
+                <div className="flex gap-2">
+                  <input type="date" className={inputCls} value={form.pausedUntil ?? ''} onChange={e => update('pausedUntil', e.target.value)} />
+                  {form.pausedUntil && (
+                    <button type="button" onClick={() => update('pausedUntil', '')} className="px-3 text-sm rounded-md border hover:bg-secondary">Tozalash</button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Bu sanaga qadar mashina taqsimlashga kirmaydi. Bo'sh qoldirsangiz, doim ishlaydi.</p>
+              </div>
+              <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Yuk turi</label>
                 <select className={inputCls} value={form.cargoType ?? 'any'} onChange={e => update('cargoType', e.target.value)}>
                   <option value="any">Universal (qopli va boshqa yuklar)</option>

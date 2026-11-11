@@ -630,8 +630,10 @@ function VehiclesView() {
     .filter(v => typeFilter === 'all' || (v.cargoType || 'any') === typeFilter)
     .sort((a, b) => String(a.plateNumber || '').localeCompare(String(b.plateNumber || '')))
 
-  const activeCount = vehicles.filter(v => v.isActive !== false).length
-  const totalCapacity = vehicles.filter(v => v.isActive !== false).reduce((sum, v) => sum + (parseFloat(v.maxCapacity) || 0), 0)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const isWorking = (v: any) => v.isActive !== false && !(v.pausedUntil && String(v.pausedUntil) >= todayStr)
+  const activeCount = vehicles.filter(isWorking).length
+  const totalCapacity = vehicles.filter(isWorking).reduce((sum, v) => sum + (parseFloat(v.maxCapacity) || 0), 0)
   const bulkCount = vehicles.filter(v => v.cargoType === 'bulk').length
   const noPinfl = vehicles.filter(v => v.isActive !== false && String(v.driverPinfl || '').replace(/\D/g, '').length !== 14)
   const todayTrips = Object.values(todayByPlate).reduce((sum, x) => sum + x.trips, 0)
@@ -705,6 +707,9 @@ function VehiclesView() {
                 <td className="py-2 px-3">
                   <div className="font-bold leading-tight">{v.plateNumber}</div>
                   <div className="text-xs text-muted-foreground">{v.vehicleModel || '—'}</div>
+                  {v.pausedUntil && String(v.pausedUntil) >= new Date().toISOString().slice(0, 10) && (
+                    <div className="text-[11px] text-amber-600">Ta'mirda · {v.pausedUntil} gacha</div>
+                  )}
                 </td>
                 <td className="py-2 px-3">
                   <div className="font-medium leading-tight">{v.driverName || '—'}</div>

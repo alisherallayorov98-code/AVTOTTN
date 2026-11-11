@@ -93,11 +93,60 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
     return map
   }
 
+  // ---- Taqsimotni qo'lda tahrirlash ----
+  const fits = (v: any, packaging: string) => {
+    if (v.isActive === false) return false
+    const t = v.cargoType || 'any'
+    return packaging === 'bulk' ? t === 'bulk' : packaging === 'bag' ? t !== 'bulk' : true
+  }
+  const updateAlloc = (a: any, patch: any) => {
+    setAllocations(prev => prev.map(x => (x === a ? { ...x, ...patch } : x)))
+    setRemaining([])
+  }
+  const removeAlloc = (a: any) => {
+    setAllocations(prev => prev.filter(x => x !== a))
+    setRemaining([])
+  }
+  const addAlloc = (invId: string) => {
+    const inv = invById(invId)
+    const mine = allocations.filter(x => x.invoiceId === invId)
+    const packaging = mine[mine.length - 1]?.packaging || 'any'
+    const v = vehicles.find((x: any) => fits(x, packaging))
+    if (!v) return toast("Mos mashina topilmadi", 'error')
+    const left = Math.max(0, (parseFloat(inv?.quantity) || 0) - mine.reduce((s, x) => s + (parseFloat(x.quantity) || 0), 0))
+    const qty = parseFloat(Math.min(left || (parseFloat(v.maxCapacity) || 0), parseFloat(v.maxCapacity) || left).toFixed(3))
+    const trip = allocations.filter(x => x.vehicleId === v.id).length + 1
+    setAllocations(prev => [...prev, { invoiceId: invId, vehicleId: v.id, packaging, tripIndex: trip, quantity: qty }])
+    setRemaining([])
+  }
+  const allocatedOf = (invId: string) =>
+    parseFloat(allocations.filter(x => x.invoiceId === invId).reduce((s, x) => s + (parseFloat(x.quantity) || 0), 0).toFixed(3))
+
   const handleGenerate = async () => {
     if (allocations.length === 0) return toast("Taqsimot bo'sh", 'error')
+    const valid = allocations.filter(a => (parseFloat(a.quantity) || 0) > 0)
+    if (valid.length === 0) return toast("Tonna 0 dan katta bo'lishi kerak", 'error')
+
+    // Yuk fakturadan oshib ketsa — to'xtatamiz, kam bo'lsa — so'raymiz
+    const ids = [...new Set(valid.map(a => a.invoiceId))] as string[]
+    for (const id of ids) {
+      const inv = invById(id)
+      const total = parseFloat(inv?.quantity) || 0
+      const done = allocatedOf(id)
+      if (done > total + 0.001) return toast(`№ ${inv?.invoiceNumber}: taqsimot (${done} t) faktura miqdoridan (${total} t) oshib ketdi`, 'error')
+    }
+    const partial = ids.filter(id => allocatedOf(id) < (parseFloat(invById(id)?.quantity) || 0) - 0.001)
+    if (partial.length > 0 && !confirm(`${partial.length} ta fakturada yuk to'liq taqsimlanmagan.\nShunday holda Excel yaratilsinmi?`)) return
+
+    // Avval TTN yaratilgan fakturalar
+    try {
+      const exists = await window.api.checkTtnExists(ids)
+      if (exists.length > 0 && !confirm(`Bu fakturalar uchun TTN avval yaratilgan: ${exists.map(e => '№' + e.invoiceNumber).join(', ')}.\nQayta yaratilsinmi? (hisobotda ikki marta sanalmaydi)`)) return
+    } catch { /* tekshiruv ishlamasa davom etamiz */ }
+
     setGenerating(true)
     try {
-      const result = await window.api.bulkGenerateExcel(allocations, buildAddresses())
+      const result = await window.api.bulkGenerateExcel(valid, buildAddresses())
       if (result.success) {
         toast(`Excel yaratildi ✓\n${result.filename}`, 'success')
         onComplete()
@@ -166,17 +215,49 @@ export function BulkDispatchModal({ invoices, vehicles, customers, onClose, onCo
                           <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
                             <span className="flex items-center gap-2">
                               <Truck size={14} className="text-muted-foreground" />
-                              {v?.plateNumber}
+                              <select
+                                className="text-sm border rounded px-1.5 py-0.5 bg-background"
+                                value={a.vehicleId}
+                                onChange={e => updateAlloc(a, { vehicleId: e.target.value })}
+                              >
+                                {vehicles.filter((x: any) => fits(x, a.packaging) || x.id === a.vehicleId).map((x: any) => (
+                                  <option key={x.id} value={x.id}>{x.plateNumber}{x.cargoType === 'bulk' ? ' · sementovoz' : ''}</option>
+                                ))}
+                              </select>
                               <span className="text-xs text-muted-foreground">({a.tripIndex}-reys)</span>
                               {a.packaging === 'bulk' && <span className="text-xs px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">sochma</span>}
                               {a.packaging === 'bag' && <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">qopli</span>}
                               {isBuyerVehicle && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">xaridor</span>}
                             </span>
-                            <span className="font-medium text-primary">{a.quantity} t</span>
+                            <span className="flex items-center gap-1.5">
+                              <input
+                                type="number" step="0.1" min="0"
+                                className="w-20 text-right text-sm border rounded px-2 py-0.5 bg-background font-medium text-primary"
+                                value={a.quantity}
+                                onChange={e => updateAlloc(a, { quantity: e.target.value })}
+                              />
+                              <span className="text-xs text-muted-foreground">t</span>
+                              <button onClick={() => removeAlloc(a)} className="p-1 rounded text-muted-foreground hover:text-destructive" title="Reysni o'chirish">
+                                <X size={14} />
+                              </button>
+                            </span>
                           </div>
                         )
                       })}
                     </div>
+                    {(() => {
+                      const done = allocatedOf(invId)
+                      const total = parseFloat(inv?.quantity) || 0
+                      const diff = parseFloat((total - done).toFixed(3))
+                      return (
+                        <div className="px-4 py-2 bg-secondary/20 flex items-center justify-between text-xs">
+                          <span className={diff > 0.001 ? 'text-amber-600' : diff < -0.001 ? 'text-destructive font-medium' : 'text-emerald-600'}>
+                            Taqsimlandi {done} / {total} t{diff > 0.001 ? ` · ${diff} t qoldi` : diff < -0.001 ? ` · ${-diff} t ortiqcha!` : ' ✓'}
+                          </span>
+                          <button onClick={() => addAlloc(invId)} className="text-primary hover:underline">+ Reys qo'shish</button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}

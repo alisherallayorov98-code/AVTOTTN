@@ -291,7 +291,15 @@ export function registerIpcHandlers() {
       .filter((inv: any) => invoiceIds.includes(inv.id))
       .map((inv: any) => (overrides && overrides[inv.id] ? { ...inv, packaging: overrides[inv.id] } : inv));
     const fleet = await db.getVehicles();
-    return splitter.bulkAutoDispatch(selectedInvoices, fleet);
+    // Bugungi bajarilgan reyslar (shu fakturalarning o'zi qayta taqsimlansa, hisobga olinmaydi)
+    const today = new Date().toISOString().slice(0, 10);
+    const log = await db.getTtnLog();
+    const skip = new Set(invoiceIds);
+    const initialTrips: any = {};
+    for (const r of log) {
+      if (r.date === today && r.vehicleId && !skip.has(r.invoiceId)) initialTrips[r.vehicleId] = (initialTrips[r.vehicleId] || 0) + 1;
+    }
+    return splitter.bulkAutoDispatch(selectedInvoices, fleet, initialTrips, today);
   });
 
   ipcMain.handle('generate-excel', async (_: any, invoiceId: string, allocations: any[], unloadingAddress: any) => {
@@ -479,22 +487,32 @@ export function registerIpcHandlers() {
     return classifyInvoices(parsedList || [], existing, written);
   });
 
-  // TTN hisoboti: qopli / sochma bo'yicha tonna va reyslar (sana oralig'ida)
+  // TTN hisoboti: qopli / sochma, mashina va mijoz bo'yicha (sana oralig'ida)
   ipcMain.handle('get-ttn-report', async (_: any, from: string, to: string) => {
+    const { buildReport } = require('./ttn-report');
+    const r = buildReport(await getDb().getTtnLog(), from, to);
+    return { ...r, rows: undefined };
+  });
+
+  // Hisobotni Excelga chiqarish
+  ipcMain.handle('export-ttn-report', async (_: any, from: string, to: string) => {
+    const { buildReport, reportToXlsx } = require('./ttn-report');
+    const report = buildReport(await getDb().getTtnLog(), from, to);
+    if (report.totalTrips === 0) throw new Error("Bu davrda TTN yo'q");
+    const outputDir = path.join(app.getPath('downloads'), 'AvtoETTN');
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    const outputPath = path.join(outputDir, `Hisobot_${from || 'boshi'}_${to || 'oxiri'}_${Date.now()}.xlsx`);
+    fs.writeFileSync(outputPath, reportToXlsx(report, from, to));
+    shell.showItemInFolder(outputPath);
+    return { success: true, path: outputPath };
+  });
+
+  // Qaysi fakturalar uchun TTN allaqachon yaratilgan (qayta yaratishdan oldin ogohlantirish)
+  ipcMain.handle('check-ttn-exists', async (_: any, invoiceIds: string[]) => {
     const log = await getDb().getTtnLog();
-    const rows = log.filter((r: any) => (!from || r.date >= from) && (!to || r.date <= to));
-    const sum = (list: any[]) => parseFloat(list.reduce((s: number, r: any) => s + (r.quantity || 0), 0).toFixed(3));
-    const byType: any = {};
-    const byVehicle: any = {};
-    for (const r of rows) {
-      const t = r.packaging || 'any';
-      byType[t] = byType[t] || { trips: 0, tons: 0 };
-      byType[t].trips++; byType[t].tons = parseFloat((byType[t].tons + (r.quantity || 0)).toFixed(3));
-      const k = r.plateNumber || r.vehicleId;
-      byVehicle[k] = byVehicle[k] || { plateNumber: k, packaging: t, trips: 0, tons: 0 };
-      byVehicle[k].trips++; byVehicle[k].tons = parseFloat((byVehicle[k].tons + (r.quantity || 0)).toFixed(3));
-    }
-    return { totalTrips: rows.length, totalTons: sum(rows), byType, byVehicle: Object.values(byVehicle) };
+    const done = new Map<string, string>();
+    for (const r of log) if (invoiceIds.includes(r.invoiceId)) done.set(r.invoiceId, r.invoiceNumber);
+    return [...done.entries()].map(([invoiceId, invoiceNumber]) => ({ invoiceId, invoiceNumber }));
   });
 
   ipcMain.handle('parse-pdf', async (_: any, buffer: any) => {

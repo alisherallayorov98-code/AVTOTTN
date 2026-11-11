@@ -29,6 +29,8 @@ declare global {
       deleteManualInvoice: (id: string) => Promise<any>;
       extractPdfs: (buffer: ArrayBuffer) => Promise<any>;
       parsePdf: (buffer: ArrayBuffer) => Promise<any>;
+      exportTtnReport: (from: string, to: string) => Promise<any>;
+      checkTtnExists: (ids: string[]) => Promise<{ invoiceId: string; invoiceNumber: string }[]>;
       getTtnReport: (from: string, to: string) => Promise<any>;
       checkInvoiceDuplicates: (list: any[]) => Promise<any[]>;
       parsePdfsFromFolder: () => Promise<any>;

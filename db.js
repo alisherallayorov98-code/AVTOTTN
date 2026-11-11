@@ -283,6 +283,9 @@ module.exports = {
   addTtnLog: (entries) => {
     const { data, profile } = current();
     if (!profile.ttnLog) profile.ttnLog = [];
+    // Shu fakturalar uchun eski yozuvlar almashtiriladi (qayta yaratishda ikki marta sanalmasligi uchun)
+    const ids = new Set((entries || []).map(e => e.invoiceId).filter(Boolean));
+    profile.ttnLog = profile.ttnLog.filter(e => !ids.has(e.invoiceId));
     profile.ttnLog.push(...(entries || []));
     save(data, profile);
     return true;

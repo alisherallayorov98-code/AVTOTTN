@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('api', {
   deleteManualInvoice: (id) => ipcRenderer.invoke('delete-manual-invoice', id),
   extractPdfs: (buffer) => ipcRenderer.invoke('extract-pdfs', buffer),
   parsePdf: (buffer) => ipcRenderer.invoke('parse-pdf', buffer),
+  exportTtnReport: (from, to) => ipcRenderer.invoke('export-ttn-report', from, to),
+  checkTtnExists: (ids) => ipcRenderer.invoke('check-ttn-exists', ids),
   getTtnReport: (from, to) => ipcRenderer.invoke('get-ttn-report', from, to),
   checkInvoiceDuplicates: (list) => ipcRenderer.invoke('check-invoice-duplicates', list),
   parsePdfsFromFolder: () => ipcRenderer.invoke('parse-pdfs-from-folder')

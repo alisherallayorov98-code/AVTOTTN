@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X, BarChart3, Loader2 } from 'lucide-react'
+import { X, BarChart3, Loader2, Download } from 'lucide-react'
+import { toast } from './Toast'
 
 const TYPE_LABEL: any = { bag: 'Qopli sement', bulk: 'Sochma sement (sementovoz)', any: 'Turi belgilanmagan' }
 const today = () => new Date().toISOString().slice(0, 10)
@@ -15,6 +16,13 @@ export function CargoReportModal({ onClose }: any) {
     window.api.getTtnReport(from, to).then(setReport).finally(() => setLoading(false))
   }, [from, to])
 
+  const doExport = async () => {
+    try {
+      await window.api.exportTtnReport(from, to)
+      toast('Hisobot Excelga saqlandi ✓', 'success')
+    } catch (e: any) { toast('Xatolik: ' + e.message, 'error') }
+  }
+
   const inputCls = 'px-3 py-1.5 bg-background border rounded-md text-sm'
 
   return (
@@ -29,6 +37,9 @@ export function CargoReportModal({ onClose }: any) {
             <input type="date" className={inputCls} value={from} onChange={e => setFrom(e.target.value)} />
             <span>—</span>
             <input type="date" className={inputCls} value={to} onChange={e => setTo(e.target.value)} />
+            <button onClick={doExport} disabled={!report || report.totalTrips === 0} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm hover:bg-secondary disabled:opacity-40">
+              <Download size={14} /> Excelga
+            </button>
           </div>
           {loading || !report ? (
             <div className="flex justify-center py-10 text-primary"><Loader2 className="animate-spin" /></div>
@@ -46,11 +57,21 @@ export function CargoReportModal({ onClose }: any) {
                 ))}
               </div>
               <div className="text-sm font-medium">Jami: {report.totalTons} t · {report.totalTrips} reys</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mashinalar</div>
               <div className="border rounded-xl divide-y">
                 {report.byVehicle.map((v: any) => (
                   <div key={v.plateNumber} className="px-4 py-2 flex justify-between text-sm">
                     <span>{v.plateNumber}</span>
                     <span className="text-muted-foreground">{v.trips} reys · <b className="text-foreground">{v.tons} t</b></span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mijozlar</div>
+              <div className="border rounded-xl divide-y">
+                {report.byBuyer.map((b: any) => (
+                  <div key={b.buyerTin || b.buyerName} className="px-4 py-2 flex justify-between text-sm gap-3">
+                    <span className="truncate">{b.buyerName || b.buyerTin}</span>
+                    <span className="text-muted-foreground shrink-0">{b.trips} reys · <b className="text-foreground">{b.tons} t</b></span>
                   </div>
                 ))}
               </div>

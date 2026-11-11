@@ -188,6 +188,11 @@ export function SplitterModal({ invoice, vehicles, customers, customersLoading, 
       if (!ok) return
     }
 
+    try {
+      const exists = await window.api.checkTtnExists([invoice.id])
+      if (exists.length > 0 && !confirm(`№${invoice.invoiceNumber} uchun TTN avval yaratilgan.\nQayta yaratilsinmi? (hisobotda ikki marta sanalmaydi)`)) return
+    } catch { /* davom etamiz */ }
+
     setGenerating(true)
     try {
       const result = await window.api.generateExcel(invoice.id, allocations, addressObj)
